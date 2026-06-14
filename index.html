@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>AED 模擬教學器</title>
+    <title>AED 模擬教學器 - PWA 語音修正版</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#f59e0b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="AED教學器">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <style>
         * {
@@ -978,6 +984,249 @@
             }
         }
 
+
+        /* ================= 教官控制面板 / PWA / 多語音 / 防休眠 ================= */
+        .instructor-panel {
+            position: fixed;
+            inset: 0;
+            z-index: 10020;
+            background: rgba(15, 23, 42, 0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+            color: white;
+        }
+
+        .instructor-card {
+            width: min(94vw, 430px);
+            max-height: 92dvh;
+            overflow: auto;
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 22px;
+            padding: 18px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.55);
+        }
+
+        .instructor-card h2 {
+            margin: 0 0 10px;
+            font-size: 20px;
+            font-weight: 900;
+            color: #fbbf24;
+            text-align: center;
+        }
+
+        .instructor-card .hint {
+            margin: 0 0 14px;
+            font-size: 12px;
+            color: #cbd5e1;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .instructor-section {
+            border-top: 1px solid #374151;
+            padding-top: 12px;
+            margin-top: 12px;
+        }
+
+        .instructor-section-title {
+            font-size: 13px;
+            font-weight: 900;
+            color: #93c5fd;
+            margin-bottom: 8px;
+        }
+
+        .instructor-textarea {
+            width: 100%;
+            min-height: 78px;
+            resize: vertical;
+            border: 1px solid #475569;
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 15px;
+            line-height: 1.5;
+            color: #e5e7eb;
+            background: #020617;
+            outline: none;
+        }
+
+        .prompt-label {
+            display: block;
+            margin: 9px 0 5px;
+            color: #e5e7eb;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .prompt-input {
+            width: 100%;
+            min-height: 54px;
+            resize: vertical;
+            border: 1px solid #475569;
+            border-radius: 10px;
+            padding: 9px;
+            font-size: 13px;
+            line-height: 1.45;
+            color: #e5e7eb;
+            background: #020617;
+            outline: none;
+        }
+
+        .prompt-input:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34,197,94,0.18);
+        }
+
+        .instructor-textarea:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34,197,94,0.18);
+        }
+
+        .instructor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .instructor-btn {
+            border-radius: 12px;
+            padding: 11px 10px;
+            font-size: 13px;
+            font-weight: 900;
+            color: white;
+            background: #2563eb;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.24);
+        }
+
+        .instructor-btn:active {
+            transform: scale(0.97);
+        }
+
+        .instructor-btn.green {
+            background: #16a34a;
+        }
+
+        .instructor-btn.red {
+            background: #dc2626;
+        }
+
+        .instructor-btn.amber {
+            background: #d97706;
+        }
+
+        .instructor-btn.gray {
+            background: #475569;
+        }
+
+        .instructor-btn.full {
+            grid-column: 1 / -1;
+        }
+
+        .toggle-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .toggle-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 10px;
+            border: 1px solid #475569;
+            border-radius: 999px;
+            background: #020617;
+            color: #e5e7eb;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .select-box {
+            width: 100%;
+            border: 1px solid #475569;
+            border-radius: 12px;
+            padding: 10px;
+            color: #e5e7eb;
+            background: #020617;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .status-chip {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px 9px;
+            border-radius: 999px;
+            background: #0f172a;
+            color: #cbd5e1;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 14px;
+            transform: translateX(-50%);
+            z-index: 10030;
+            background: rgba(15, 23, 42, 0.95);
+            color: white;
+            border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 999px;
+            padding: 9px 14px;
+            font-size: 13px;
+            font-weight: 800;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            max-width: 92vw;
+            text-align: center;
+        }
+
+        .voice-mode-badge {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            z-index: 60;
+            background: rgba(15, 23, 42, 0.82);
+            color: #e5e7eb;
+            border: 1px solid rgba(148,163,184,0.3);
+            border-radius: 999px;
+            padding: 5px 8px;
+            font-size: 10px;
+            font-weight: 900;
+            pointer-events: none;
+        }
+
+        @media (max-width: 767px) {
+            .instructor-card {
+                width: 96vw;
+                max-height: 94dvh;
+                padding: 14px;
+                border-radius: 18px;
+            }
+
+            .instructor-card h2 {
+                font-size: 18px;
+            }
+
+            .instructor-grid {
+                gap: 7px;
+            }
+
+            .instructor-btn {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+
+            .instructor-textarea {
+                min-height: 68px;
+                font-size: 14px;
+            }
+        }
+
     </style>
 </head>
 
@@ -1028,10 +1277,90 @@
         </button>
     </div>
 
+
+    <div id="voice-mode-badge" class="voice-mode-badge">語音：中文國語</div>
+
+    <div id="instructor-panel" class="instructor-panel hidden">
+        <div class="instructor-card">
+            <h2>教官控制面板</h2>
+            <p class="hint">長按標題 3 秒開啟。可修正 AED 流程語音、切換情境、直接進入分析心律。</p>
+
+            <div class="instructor-section">
+                <div class="instructor-section-title">AED 流程語音修正</div>
+                <p class="hint" style="margin-bottom:8px;">這裡修改的是 AED 模擬器各流程的固定語音，不是臨時廣播。</p>
+
+                <label class="prompt-label" for="prompt-power">開機／貼片提示</label>
+                <textarea id="prompt-power" class="prompt-input"></textarea>
+
+                <label class="prompt-label" for="prompt-analyze">分析心律提示</label>
+                <textarea id="prompt-analyze" class="prompt-input"></textarea>
+
+                <label class="prompt-label" for="prompt-shock-advised">需要電擊提示</label>
+                <textarea id="prompt-shock-advised" class="prompt-input"></textarea>
+
+                <label class="prompt-label" for="prompt-shock-ready">充電完成／按鈕提示</label>
+                <textarea id="prompt-shock-ready" class="prompt-input"></textarea>
+
+                <label class="prompt-label" for="prompt-cpr">CPR 提示</label>
+                <textarea id="prompt-cpr" class="prompt-input"></textarea>
+
+                <label class="prompt-label" for="prompt-noshock">不需要電擊提示</label>
+                <textarea id="prompt-noshock" class="prompt-input"></textarea>
+
+                <div class="instructor-grid" style="margin-top:8px;">
+                    <button id="btn-save-prompts" class="instructor-btn green">套用並儲存</button>
+                    <button id="btn-reset-prompts" class="instructor-btn amber">恢復預設</button>
+                    <button id="btn-test-prompt" class="instructor-btn full">測試目前選取語音</button>
+                    <button id="btn-stop-voice" class="instructor-btn gray full">停止語音</button>
+                </div>
+            </div>
+
+            <div class="instructor-section">
+                <div class="instructor-section-title">情境切換</div>
+                <div class="instructor-grid">
+                    <button id="btn-force-shock" class="instructor-btn red">切換需要電擊</button>
+                    <button id="btn-force-noshock" class="instructor-btn amber">切換不需要電擊</button>
+                    <button id="btn-direct-analyze" class="instructor-btn full">直接進入分析心律</button>
+                </div>
+                <div id="scenario-status" class="status-chip">目前：需要電擊</div>
+            </div>
+
+            <div class="instructor-section">
+                <div class="instructor-section-title">多語音版本</div>
+                <select id="voice-mode-select" class="select-box">
+                    <option value="zh-TW">中文國語</option>
+                    <option value="tw">台語提示版</option>
+                    <option value="en-US">英文提示版</option>
+                    <option value="mute">靜音字幕版</option>
+                </select>
+                <div id="voice-status" class="status-chip">目前語音：中文國語</div>
+            </div>
+
+            <div class="instructor-section">
+                <div class="instructor-section-title">PWA / 螢幕控制</div>
+                <div class="instructor-grid">
+                    <button id="btn-install-pwa" class="instructor-btn green">安裝到手機桌面</button>
+                    <button id="btn-wake-lock" class="instructor-btn">防止手機休眠：開</button>
+                    <button id="btn-reset-flow" class="instructor-btn gray full">重置 AED 流程</button>
+                </div>
+                <div id="wake-status" class="status-chip">防休眠：尚未啟用</div>
+                <div id="install-status" class="status-chip">PWA：等待瀏覽器提供安裝</div>
+            </div>
+
+            <div class="instructor-section">
+                <div class="instructor-grid">
+                    <button id="btn-close-instructor" class="instructor-btn gray full">關閉控制面板</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
     <main class="page-wrap">
         <section class="aed-panel">
             <div>
-                <div class="aed-title">▲ AED 模擬教學器</div>
+                <div id="aed-title" class="aed-title">▲ AED 模擬教學器</div>
 
                 <div id="screen-container">
                     <canvas id="ecg-canvas" width="400" height="80"></canvas>
@@ -1296,6 +1625,334 @@
         const bootAudio = document.getElementById('boot-audio');
         const shockAudio = document.getElementById('shock-audio');
 
+
+        // ================= 教官控制面板 / PWA / 多語音 / 防休眠 =================
+        let instructorPressTimer = null;
+        let deferredInstallPrompt = null;
+        let wakeLock = null;
+        let currentVoiceMode = 'zh-TW';
+
+        const instructorPanel = document.getElementById('instructor-panel');
+        const aedTitle = document.getElementById('aed-title');
+        const voiceModeSelect = document.getElementById('voice-mode-select');
+        const voiceModeBadge = document.getElementById('voice-mode-badge');
+        const scenarioStatus = document.getElementById('scenario-status');
+        const voiceStatus = document.getElementById('voice-status');
+        const wakeStatus = document.getElementById('wake-status');
+        const installStatus = document.getElementById('install-status');
+        const toastBox = document.getElementById('toast');
+
+
+        const DEFAULT_VOICE_PROMPTS = {
+            power: "請保持冷靜，依照語音指示操作。貼上電極貼片。按照貼片圖示，將貼片貼在患者胸口正確位置。",
+            analyze: "分析心律，請勿碰觸病人。",
+            shockAdvised: "建議電擊，請按下閃爍的電擊鈕。",
+            shockReady: "不要碰觸病人。按下閃爍的電擊鈕進行電擊。",
+            cpr: "請立即開始持續壓胸。",
+            noShock: "不需要電擊。請立即開始 CPR。"
+        };
+
+        let voicePrompts = { ...DEFAULT_VOICE_PROMPTS };
+
+        const promptFields = {
+            power: document.getElementById('prompt-power'),
+            analyze: document.getElementById('prompt-analyze'),
+            shockAdvised: document.getElementById('prompt-shock-advised'),
+            shockReady: document.getElementById('prompt-shock-ready'),
+            cpr: document.getElementById('prompt-cpr'),
+            noShock: document.getElementById('prompt-noshock')
+        };
+
+        function loadVoicePrompts() {
+            try {
+                const raw = localStorage.getItem('aedVoicePrompts');
+                if (raw) {
+                    const saved = JSON.parse(raw);
+                    voicePrompts = { ...DEFAULT_VOICE_PROMPTS, ...saved };
+                }
+            } catch (e) {
+                console.warn("讀取語音設定失敗：", e);
+                voicePrompts = { ...DEFAULT_VOICE_PROMPTS };
+            }
+
+            fillPromptFields();
+        }
+
+        function fillPromptFields() {
+            Object.keys(promptFields).forEach(key => {
+                if (promptFields[key]) {
+                    promptFields[key].value = voicePrompts[key] || DEFAULT_VOICE_PROMPTS[key] || "";
+                }
+            });
+        }
+
+        function saveVoicePrompts() {
+            Object.keys(promptFields).forEach(key => {
+                if (promptFields[key]) {
+                    const value = promptFields[key].value.trim();
+                    voicePrompts[key] = value || DEFAULT_VOICE_PROMPTS[key];
+                }
+            });
+
+            localStorage.setItem('aedVoicePrompts', JSON.stringify(voicePrompts));
+            showToast("AED 流程語音已套用並儲存");
+        }
+
+        function resetVoicePrompts() {
+            voicePrompts = { ...DEFAULT_VOICE_PROMPTS };
+            localStorage.removeItem('aedVoicePrompts');
+            fillPromptFields();
+            showToast("已恢復預設 AED 語音");
+        }
+
+        function speakPrompt(key) {
+            const text = voicePrompts[key] || DEFAULT_VOICE_PROMPTS[key] || "";
+            speak(text);
+        }
+
+        function getSelectedPromptText() {
+            const active = document.activeElement;
+            if (active && active.classList && active.classList.contains('prompt-input')) {
+                return active.value.trim();
+            }
+
+            return promptFields.power ? promptFields.power.value.trim() : "";
+        }
+
+
+        function showToast(message, ms = 1800) {
+            if (!toastBox) {
+                return;
+            }
+
+            toastBox.textContent = message;
+            toastBox.classList.remove('hidden');
+
+            clearTimeout(showToast._timer);
+            showToast._timer = setTimeout(() => {
+                toastBox.classList.add('hidden');
+            }, ms);
+        }
+
+        function openInstructorPanel() {
+            fillPromptFields();
+            instructorPanel.classList.remove('hidden');
+            updateInstructorStatus();
+            showToast("已開啟教官控制面板");
+        }
+
+        function closeInstructorPanel() {
+            instructorPanel.classList.add('hidden');
+        }
+
+        function updateInstructorStatus() {
+            const scenario = document.querySelector('input[name="scenario"]:checked')?.value || 'shock';
+            if (scenarioStatus) {
+                scenarioStatus.textContent = "目前：" + (scenario === 'shock' ? "需要電擊" : "不需要電擊");
+            }
+
+            const label = getVoiceModeLabel(currentVoiceMode);
+            if (voiceStatus) {
+                voiceStatus.textContent = "目前語音：" + label;
+            }
+
+            if (voiceModeBadge) {
+                voiceModeBadge.textContent = "語音：" + label;
+            }
+        }
+
+        function getVoiceModeLabel(mode) {
+            switch (mode) {
+                case 'tw':
+                    return '台語提示版';
+                case 'en-US':
+                    return 'English';
+                case 'mute':
+                    return '靜音字幕版';
+                case 'zh-TW':
+                default:
+                    return '中文國語';
+            }
+        }
+
+        function translateVoiceText(text) {
+            if (currentVoiceMode === 'mute') {
+                return "";
+            }
+
+            if (currentVoiceMode === 'en-US') {
+                const map = {
+                    "請保持冷靜，依照語音指示操作。貼上電極貼片。按照貼片圖示，將貼片貼在患者胸口正確位置。": "Stay calm and follow the voice prompts. Apply the electrode pads to the correct positions on the patient's chest as shown.",
+                    "分析心律，請勿碰觸病人。": "Analyzing heart rhythm. Do not touch the patient.",
+                    "建議電擊，請按下閃爍的電擊鈕。": "Shock advised. Press the flashing shock button.",
+                    "不要碰觸病人。按下閃爍的電擊鈕進行電擊。": "Do not touch the patient. Press the flashing shock button to deliver the shock.",
+                    "電擊已完成。": "Shock delivered.",
+                    "請立即開始持續壓胸。": "Start continuous chest compressions now.",
+                    "不需要電擊。請立即開始 CPR。": "No shock advised. Start CPR now.",
+                    "請點選對應的貼片位置。": "Tap the matching pad position.",
+                    "請先點選要貼上的電極貼片。": "Please tap an electrode pad first.",
+                    "貼片位置不正確，請選擇對應的圖示位置。": "The pad position is incorrect. Choose the matching position shown."
+                };
+                return map[text] || text;
+            }
+
+            if (currentVoiceMode === 'tw') {
+                const map = {
+                    "請保持冷靜，依照語音指示操作。貼上電極貼片。按照貼片圖示，將貼片貼在患者胸口正確位置。": "請保持冷靜，照語音指示操作。貼上電極貼片，照圖示貼佇患者胸口正確的位置。",
+                    "分析心律，請勿碰觸病人。": "分析心律，請毋通碰著病人。",
+                    "建議電擊，請按下閃爍的電擊鈕。": "建議電擊，請按閃爍的電擊鈕。",
+                    "不要碰觸病人。按下閃爍的電擊鈕進行電擊。": "毋通碰著病人，按閃爍的電擊鈕進行電擊。",
+                    "電擊已完成。": "電擊已經完成。",
+                    "請立即開始持續壓胸。": "請馬上開始持續壓胸。",
+                    "不需要電擊。請立即開始 CPR。": "毋免電擊，請馬上開始 CPR。",
+                    "請點選對應的貼片位置。": "請點對應的貼片位置。",
+                    "請先點選要貼上的電極貼片。": "請先點欲貼的電極貼片。",
+                    "貼片位置不正確，請選擇對應的圖示位置。": "貼片位置毋著，請選對應的圖示位置。"
+                };
+                return map[text] || text;
+            }
+
+            return text;
+        }
+
+        function getSpeechLang() {
+            if (currentVoiceMode === 'en-US') {
+                return 'en-US';
+            }
+            return 'zh-TW';
+        }
+
+        function setScenarioMode(mode) {
+            const selector = mode === 'noshock'
+                ? 'input[name="scenario"][value="noshock"]'
+                : 'input[name="scenario"][value="shock"]';
+
+            const radio = document.querySelector(selector);
+            if (radio) {
+                radio.checked = true;
+            }
+
+            updateInstructorStatus();
+            showToast(mode === 'noshock' ? "已切換：不需要電擊" : "已切換：需要電擊");
+        }
+
+        function directAnalyze() {
+            closeInstructorPanel();
+            resetPads();
+            trainingArea.classList.add('disabled-training');
+            ecg.start();
+            ecg.setType('NORMAL');
+            btnPower.classList.add('power-off-look');
+            changeState(STATES.ANALYZING);
+            showToast("直接進入分析心律");
+        }
+
+        async function requestWakeLock() {
+            try {
+                if (!('wakeLock' in navigator)) {
+                    if (wakeStatus) {
+                        wakeStatus.textContent = "防休眠：此瀏覽器不支援";
+                    }
+                    showToast("此瀏覽器不支援防休眠");
+                    return;
+                }
+
+                wakeLock = await navigator.wakeLock.request('screen');
+
+                if (wakeStatus) {
+                    wakeStatus.textContent = "防休眠：已啟用";
+                }
+
+                wakeLock.addEventListener('release', () => {
+                    if (wakeStatus) {
+                        wakeStatus.textContent = "防休眠：已解除";
+                    }
+                });
+
+                showToast("已啟用防止手機休眠");
+            } catch (e) {
+                console.warn("Wake Lock 啟用失敗：", e);
+                if (wakeStatus) {
+                    wakeStatus.textContent = "防休眠：啟用失敗";
+                }
+                showToast("防休眠啟用失敗");
+            }
+        }
+
+        async function releaseWakeLock() {
+            try {
+                if (wakeLock) {
+                    await wakeLock.release();
+                    wakeLock = null;
+                }
+
+                if (wakeStatus) {
+                    wakeStatus.textContent = "防休眠：已關閉";
+                }
+
+                showToast("已關閉防止手機休眠");
+            } catch (e) {
+                console.warn("Wake Lock 關閉失敗：", e);
+            }
+        }
+
+        async function toggleWakeLock() {
+            if (wakeLock) {
+                await releaseWakeLock();
+            } else {
+                await requestWakeLock();
+            }
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && wakeLock) {
+                requestWakeLock();
+            }
+        });
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            if (installStatus) {
+                installStatus.textContent = "PWA：可以安裝";
+            }
+            showToast("可安裝到手機桌面");
+        });
+
+        async function installPWA() {
+            try {
+                if (!deferredInstallPrompt) {
+                    if (installStatus) {
+                        installStatus.textContent = "PWA：請用 HTTPS 網站開啟後再安裝";
+                    }
+                    showToast("請先用 HTTPS 網站開啟，才會出現安裝提示", 2600);
+                    return;
+                }
+
+                deferredInstallPrompt.prompt();
+                const result = await deferredInstallPrompt.userChoice;
+
+                if (installStatus) {
+                    installStatus.textContent = "PWA：" + (result.outcome === 'accepted' ? "已接受安裝" : "未安裝");
+                }
+
+                deferredInstallPrompt = null;
+            } catch (e) {
+                console.warn("PWA 安裝失敗：", e);
+                showToast("PWA 安裝失敗");
+            }
+        }
+
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+                navigator.serviceWorker.register('./sw.js').catch((e) => {
+                    console.warn("Service Worker 註冊失敗：", e);
+                });
+            }
+        }
+
+
+
         // 手機上單一 Audio 重複 currentTime=0 會有延遲；建立音檔池輪流播放，比較跟得上節拍。
         const cprBeepPool = Array.from({ length: 6 }, () => {
             const audio = new Audio(cprBeepAudio.src);
@@ -1312,11 +1969,17 @@
                     return;
                 }
 
+                const finalText = translateVoiceText(text);
+
+                if (!finalText || currentVoiceMode === 'mute') {
+                    return;
+                }
+
                 window.speechSynthesis.cancel();
 
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'zh-TW';
-                utterance.rate = 1.0;
+                const utterance = new SpeechSynthesisUtterance(finalText);
+                utterance.lang = getSpeechLang();
+                utterance.rate = currentVoiceMode === 'tw' ? 0.92 : 1.0;
                 utterance.pitch = 1.0;
                 utterance.volume = 1.0;
 
@@ -1545,7 +2208,7 @@
 
                     void playAudioElement(bootAudio, true);
 
-                    speak("請保持冷靜，依照語音指示操作。貼上電極貼片。按照貼片圖示，將貼片貼在患者胸口正確位置。");
+                    speakPrompt("power");
 
                     setTimeout(() => {
                         if (currentState === STATES.POWER_ON) {
@@ -1565,7 +2228,7 @@
 
                     trainingArea.classList.add('disabled-training');
 
-                    speak("分析心律，請勿碰觸病人。");
+                    speakPrompt("analyze");
                     ecg.setType('NORMAL');
 
                     setTimeout(() => {
@@ -1581,7 +2244,7 @@
                         } else {
                             ecg.setType('ASYSTOLE');
                             screen.innerHTML = "不需要電擊<br>請立即開始 CPR";
-                            speak("不需要電擊。請立即開始 CPR。");
+                            speakPrompt("noShock");
 
                             setTimeout(() => {
                                 if (currentState === STATES.ANALYZING) {
@@ -1596,7 +2259,7 @@
                 case STATES.SHOCK_ADVISED:
                     screen.innerHTML = "建議電擊！<br>請按下閃爍的電擊鈕";
 
-                    speak("建議電擊，請按下閃爍的電擊鈕。");
+                    speakPrompt("shockAdvised");
 
                     let chargeTimer = 0;
 
@@ -1621,7 +2284,7 @@
 
                             const playWarning = () => {
                                 if (currentState === STATES.SHOCK_ADVISED) {
-                                    speak("不要碰觸病人。按下閃爍的電擊鈕進行電擊。");
+                                    speakPrompt("shockReady");
                                 }
                             };
 
@@ -1659,7 +2322,7 @@
 
                 case STATES.CPR:
                     screen.innerHTML = "請立即開始持續壓胸";
-                    speak("請立即開始持續壓胸。");
+                    speakPrompt("cpr");
                     ecg.setType('CPR');
 
                     cprBeatCount = 0;
@@ -1911,6 +2574,108 @@
         document.getElementById('btn-close-line-alert').addEventListener('click', () => {
             document.getElementById('line-browser-alert').classList.add('hidden');
         });
+
+
+        // 教官控制面板：長按 AED 標題 3 秒開啟
+        if (aedTitle) {
+            const startLongPress = (e) => {
+                if (e) {
+                    e.preventDefault();
+                }
+
+                clearTimeout(instructorPressTimer);
+                instructorPressTimer = setTimeout(() => {
+                    openInstructorPanel();
+                }, 3000);
+
+                showToast("持續長按 3 秒開啟教官控制面板", 900);
+            };
+
+            const cancelLongPress = () => {
+                clearTimeout(instructorPressTimer);
+                instructorPressTimer = null;
+            };
+
+            aedTitle.addEventListener('mousedown', startLongPress);
+            aedTitle.addEventListener('touchstart', startLongPress, { passive: false });
+            aedTitle.addEventListener('mouseup', cancelLongPress);
+            aedTitle.addEventListener('mouseleave', cancelLongPress);
+            aedTitle.addEventListener('touchend', cancelLongPress);
+            aedTitle.addEventListener('touchcancel', cancelLongPress);
+        }
+
+        document.getElementById('btn-close-instructor').addEventListener('click', closeInstructorPanel);
+
+        document.getElementById('btn-save-prompts').addEventListener('click', () => {
+            saveVoicePrompts();
+        });
+
+        document.getElementById('btn-reset-prompts').addEventListener('click', () => {
+            resetVoicePrompts();
+        });
+
+        document.getElementById('btn-test-prompt').addEventListener('click', () => {
+            saveVoicePrompts();
+
+            const text = getSelectedPromptText();
+            if (!text) {
+                showToast("請先點選或輸入一段語音文字");
+                return;
+            }
+
+            speak(text);
+        });
+
+        document.getElementById('btn-stop-voice').addEventListener('click', () => {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            showToast("已停止語音");
+        });
+
+        document.getElementById('btn-force-shock').addEventListener('click', () => {
+            setScenarioMode('shock');
+        });
+
+        document.getElementById('btn-force-noshock').addEventListener('click', () => {
+            setScenarioMode('noshock');
+        });
+
+        document.getElementById('btn-direct-analyze').addEventListener('click', directAnalyze);
+
+        document.getElementById('btn-install-pwa').addEventListener('click', installPWA);
+
+        document.getElementById('btn-wake-lock').addEventListener('click', toggleWakeLock);
+
+        document.getElementById('btn-reset-flow').addEventListener('click', () => {
+            closeInstructorPanel();
+            changeState(STATES.OFF);
+            showToast("已重置 AED 流程");
+        });
+
+        voiceModeSelect.addEventListener('change', () => {
+            currentVoiceMode = voiceModeSelect.value;
+            updateInstructorStatus();
+
+            if (currentVoiceMode === 'mute') {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
+                showToast("已切換：靜音字幕版");
+            } else {
+                speak("語音模式已切換。");
+                showToast("已切換：" + getVoiceModeLabel(currentVoiceMode));
+            }
+        });
+
+        document.querySelectorAll('input[name="scenario"]').forEach(radio => {
+            radio.addEventListener('change', updateInstructorStatus);
+        });
+
+        registerServiceWorker();
+        loadVoicePrompts();
+        updateInstructorStatus();
+
 
         window.addEventListener('DOMContentLoaded', () => {
             const ua = navigator.userAgent || navigator.vendor || window.opera;
