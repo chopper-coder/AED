@@ -1,1140 +1,464 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:;" />
-  <meta name="theme-color" content="#f59e0b" />
-  <meta name="description" content="AED 模擬教學器 V2.3 GitHub CPR 手機音效修正版，支援貼片拖曳、心律分析、電擊防錯、CPR 110 BPM 節拍與 PWA 離線快取。" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="aed-icon.svg" type="image/svg+xml" />
-  <title>AED 模擬教學器 V2.3 - GitHub CPR 手機音效修正版</title>
-  <style>
-    :root {
-      --amber: #f59e0b;
-      --amber-dark: #b45309;
-      --green: #16a34a;
-      --green-light: #22c55e;
-      --red: #dc2626;
-      --red-dark: #7f1d1d;
-      --blue: #2563eb;
-      --slate-950: #020617;
-      --slate-900: #0f172a;
-      --slate-800: #1e293b;
-      --slate-700: #334155;
-      --slate-600: #475569;
-      --slate-400: #94a3b8;
-      --gray-50: #f9fafb;
-      --gray-100: #f3f4f6;
-      --gray-200: #e5e7eb;
-      --gray-700: #374151;
-      --white: #ffffff;
-      --shadow-lg: 0 18px 45px rgba(15, 23, 42, 0.25);
-      --shadow-md: 0 10px 24px rgba(15, 23, 42, 0.18);
-      --radius-2xl: 24px;
-      --radius-xl: 18px;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AED 模擬教學器 - 醫療現場擬真版</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+        @keyframes fast-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.1; }
+        }
+        /* 電擊放電強光動畫 */
+        @keyframes shock-flash {
+            0% { background-color: #ffffff; filter: brightness(2); }
+            20% { background-color: #ef4444; }
+            40% { background-color: #ffffff; }
+            100% { background-color: rgb(243, 244, 246); }
+        }
+        /* 深度客製高擬真指示燈閃爍動畫 */
+        @keyframes led-flash-amber {
+            0%, 100% { background-color: #f59e0b; box-shadow: 0 0 25px #f59e0b, inset 0 0 10px rgba(255,255,255,0.6); }
+            50% { background-color: #334155; box-shadow: 0 0 0px transparent; }
+        }
+        @keyframes led-flash-green {
+            0%, 100% { background-color: #22c55e; box-shadow: 0 0 25px #22c55e, inset 0 0 10px rgba(255,255,255,0.6); }
+            50% { background-color: #334155; box-shadow: 0 0 0px transparent; }
+        }
+        
+        .led-amber-flashing { animation: led-flash-amber 0.4s infinite; }
+        .led-green-flashing { animation: led-flash-green 0.8s infinite; }
+        
+        .flash-active { animation: shock-flash 0.6s ease-out; }
+        .dragging { opacity: 0.5; }
+        
+        /* 螢幕內縮背光效果 */
+        #screen-container {
+            box-shadow: inset 0 0 20px rgba(74, 222, 128, 0.2);
+        }
 
-    * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; }
-    body {
-      min-height: 100vh;
-      background: radial-gradient(circle at top, #ffffff 0%, var(--gray-100) 44%, #e2e8f0 100%);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-      color: #111827;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 14px;
-      user-select: none;
-      overflow-x: hidden;
-      transition: background-color 0.2s ease, filter 0.2s ease;
-    }
-
-    button, input, label { font: inherit; }
-    button { -webkit-tap-highlight-color: transparent; }
-
-    @keyframes blink { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.28; transform: scale(0.96); } }
-    @keyframes shock-flash {
-      0% { background-color: #ffffff; filter: brightness(2.2); }
-      20% { background-color: #ef4444; }
-      40% { background-color: #ffffff; }
-      100% { background-color: var(--gray-100); filter: brightness(1); }
-    }
-    @keyframes electrocuted-shake {
-      0%, 100% { transform: translate(0, 0) scale(1); filter: invert(0); }
-      10%, 30%, 50%, 70%, 90% { transform: translate(-8px, 5px) scale(1.02); filter: invert(1); }
-      20%, 40%, 60%, 80% { transform: translate(8px, -5px) scale(0.98); filter: invert(0.8); }
-    }
-    @keyframes led-flash-amber {
-      0%, 100% { background: #f59e0b; box-shadow: 0 0 24px #f59e0b, inset 0 0 9px rgba(255,255,255,0.65); }
-      50% { background: var(--slate-700); box-shadow: none; }
-    }
-    @keyframes led-flash-green {
-      0%, 100% { background: #22c55e; box-shadow: 0 0 24px #22c55e, inset 0 0 9px rgba(255,255,255,0.65); }
-      50% { background: var(--slate-700); box-shadow: none; }
-    }
-    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-    @keyframes pulseText { 0%, 100% { opacity: 1; } 50% { opacity: 0.48; } }
-
-    .app-shell {
-      width: min(1040px, 100%);
-      display: grid;
-      grid-template-columns: minmax(300px, 440px) minmax(300px, 440px);
-      gap: 22px;
-      align-items: stretch;
-      justify-content: center;
-    }
-
-    .aed-machine {
-      background: linear-gradient(180deg, #fbbf24 0%, var(--amber) 100%);
-      border: 8px solid var(--amber-dark);
-      border-radius: 30px;
-      box-shadow: var(--shadow-lg);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 600px;
-    }
-
-    .machine-title {
-      text-align: center;
-      color: #fff;
-      font-weight: 1000;
-      letter-spacing: 0.08em;
-      font-size: clamp(20px, 3vw, 28px);
-      text-shadow: 0 2px 8px rgba(0,0,0,0.28);
-      margin-bottom: 10px;
-    }
-
-    .screen-container {
-      background: var(--slate-950);
-      border: 4px solid var(--slate-700);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: inset 0 0 24px rgba(74, 222, 128, 0.20), 0 8px 20px rgba(0,0,0,0.20);
-    }
-
-    #ecg-canvas {
-      width: 100%;
-      height: 88px;
-      display: block;
-      border-bottom: 1px solid var(--slate-700);
-      opacity: 0;
-      transition: opacity .35s ease;
-      background: #050816;
-    }
-
-    .status-screen {
-      min-height: 84px;
-      background: var(--slate-900);
-      color: #4ade80;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-      font-weight: 900;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      line-height: 1.55;
-      padding: 12px;
-      font-size: clamp(15px, 2vw, 19px);
-    }
-
-    .led-panel {
-      background: var(--slate-900);
-      border: 1px solid #0b1220;
-      border-radius: 13px;
-      margin-top: 10px;
-      padding: 11px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      box-shadow: inset 0 2px 8px rgba(0,0,0,0.32);
-    }
-
-    .led-item { display: flex; align-items: center; justify-content: center; gap: 9px; color: #d1d5db; font-weight: 900; font-size: 13px; }
-    .led-dot { width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--slate-600); background: var(--slate-700); transition: all .2s ease; }
-    .led-dot.amber { animation: led-flash-amber .45s infinite; border-color: #fcd34d; }
-    .led-dot.green-flash { animation: led-flash-green .75s infinite; border-color: #86efac; }
-    .led-dot.green { background: var(--green-light); border-color: #86efac; box-shadow: 0 0 14px #22c55e, inset 0 0 5px rgba(255,255,255,.6); }
-
-    .control-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 34px;
-      padding: 18px 0;
-      flex-wrap: wrap;
-    }
-
-    .control-block { display: flex; flex-direction: column; align-items: center; gap: 7px; }
-    .control-caption { color: white; font-weight: 1000; font-size: 12px; text-shadow: 0 1px 5px rgba(0,0,0,.25); }
-
-    .round-btn {
-      border-radius: 999px;
-      border: 4px solid rgba(0,0,0,0.24);
-      color: #fff;
-      font-weight: 1000;
-      cursor: pointer;
-      box-shadow: var(--shadow-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      transition: transform .12s ease, filter .12s ease, opacity .12s ease;
-    }
-    .round-btn:active { transform: scale(.94); }
-    .power-btn { width: 76px; height: 76px; background: var(--green); font-size: 13px; }
-    .power-btn.off-mode { background: var(--red); }
-    .shock-btn { width: 96px; height: 96px; background: #991b1b; font-size: 17px; }
-    .shock-btn.ready { background: #ef4444; cursor: pointer; animation: blink .48s infinite; opacity: 1; }
-    .shock-btn:disabled { opacity: .42; cursor: not-allowed; filter: grayscale(.2); }
-
-    .scenario-panel {
-      border-top: 1px solid rgba(180, 83, 9, .45);
-      padding-top: 12px;
-      color: #78350f;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 13px;
-      font-weight: 900;
-      flex-wrap: wrap;
-    }
-    .scenario-panel label { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-
-    .training-area {
-      background: rgba(255,255,255,.96);
-      border: 4px solid var(--gray-200);
-      border-radius: 30px;
-      box-shadow: var(--shadow-lg);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      align-items: center;
-      min-height: 600px;
-      transition: opacity .35s ease, filter .35s ease;
-      overflow: hidden;
-    }
-    .training-area.disabled { opacity: .32; pointer-events: none; filter: grayscale(.3); }
-    .training-title { width: 100%; text-align: center; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--gray-200); font-weight: 1000; color: #1f2937; }
-
-    .patient-chest {
-      width: min(330px, 86vw);
-      height: min(330px, 86vw);
-      max-height: 330px;
-      position: relative;
-      background: #f8fafc;
-      border: 1px solid var(--gray-200);
-      border-radius: 18px;
-      box-shadow: inset 0 2px 14px rgba(15,23,42,.08);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px;
-      transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
-      touch-action: none;
-    }
-    .patient-chest svg { width: 100%; height: 100%; filter: drop-shadow(0 4px 8px rgba(0,0,0,.08)); }
-
-    .pad-target {
-      position: absolute;
-      width: 74px;
-      height: 94px;
-      border: 4px dashed currentColor;
-      border-radius: 15px;
-      background: rgba(255,255,255,.78);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      font-weight: 1000;
-      font-size: 12px;
-      line-height: 1.15;
-      box-shadow: 0 4px 14px rgba(15,23,42,.10);
-      transition: all .2s ease;
-      z-index: 2;
-    }
-    .pad-target.target-pad1 { top: 52px; left: 34px; color: var(--red); }
-    .pad-target.target-pad2 { bottom: 40px; right: 34px; color: var(--blue); }
-    .pad-target.placed { border-style: solid; background: #dcfce7; color: var(--green); }
-
-    .danger-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(220,38,38,.12);
-      border: 5px solid rgba(220,38,38,.86);
-      border-radius: 18px;
-      color: #b91c1c;
-      font-weight: 1000;
-      letter-spacing: .08em;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      z-index: 6;
-      pointer-events: none;
-      font-size: 15px;
-    }
-    .danger-overlay.show { display: flex; }
-
-    .pad-storage-box {
-      width: 100%;
-      margin-top: 16px;
-      padding: 13px;
-      background: #f1f5f9;
-      border: 1px solid #dbe3ec;
-      border-radius: 18px;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      min-height: 126px;
-      box-shadow: inset 0 2px 10px rgba(15,23,42,.08);
-    }
-
-    .pad-item {
-      width: 74px;
-      height: 94px;
-      background: white;
-      border: 4px solid currentColor;
-      border-radius: 14px;
-      box-shadow: 0 9px 20px rgba(15,23,42,.20);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 1000;
-      line-height: 1.3;
-      cursor: grab;
-      touch-action: none;
-      transition: transform .14s ease, box-shadow .14s ease, opacity .14s ease;
-      z-index: 10;
-    }
-    .pad-item small { font-size: 10px; font-weight: 800; opacity: .82; }
-    .pad-item.pad-red { color: var(--red); }
-    .pad-item.pad-blue { color: var(--blue); }
-    .pad-item.dragging {
-      position: fixed !important;
-      z-index: 9999 !important;
-      pointer-events: none !important;
-      transform: scale(1.12);
-      box-shadow: 0 18px 38px rgba(15,23,42,.34);
-      opacity: .95;
-    }
-    .pad-item.locked { cursor: default; box-shadow: none; width: 100%; height: 100%; border-width: 3px; }
-
-    .note-box {
-      width: 100%;
-      margin-top: 12px;
-      padding: 10px 12px;
-      color: #475569;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .note-box strong { color: #b91c1c; }
-
-    .gate, .line-alert {
-      position: fixed;
-      inset: 0;
-      z-index: 10000;
-      background: rgba(15, 23, 42, .98);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
-    }
-    .gate.hidden, .line-alert.hidden { display: none; }
-    .gate-card, .line-card {
-      width: min(430px, 100%);
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 30px;
-      padding: 26px;
-      box-shadow: 0 24px 70px rgba(0,0,0,.45);
-    }
-    .gate-icon, .line-icon {
-      width: 82px;
-      height: 82px;
-      margin: 0 auto 14px;
-      border-radius: 999px;
-      background: var(--amber);
-      color: #111827;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 42px;
-      font-weight: 1000;
-    }
-    .line-icon { animation: bounce 1.1s infinite; }
-    .gate-title, .line-title { color: #fbbf24; margin: 8px 0 10px; font-size: 25px; font-weight: 1000; letter-spacing: .04em; }
-    .gate-text, .line-text { color: #cbd5e1; font-size: 13px; line-height: 1.7; margin: 0 0 18px; }
-    .primary-btn, .secondary-btn {
-      border: 0;
-      border-radius: 16px;
-      padding: 15px 18px;
-      width: 100%;
-      cursor: pointer;
-      font-weight: 1000;
-      transition: transform .12s ease, filter .12s ease;
-      box-shadow: 0 10px 24px rgba(0,0,0,.22);
-    }
-    .primary-btn { background: var(--green); color: white; }
-    .secondary-btn { margin-top: 10px; background: #475569; color: white; }
-    .primary-btn:active, .secondary-btn:active { transform: scale(.98); }
-    .line-warning { display: none; margin-top: 16px; padding-top: 14px; border-top: 1px solid #334155; text-align: left; color: #fca5a5; font-size: 12px; line-height: 1.55; }
-    .line-warning.show { display: block; }
-
-    .install-status {
-      position: fixed;
-      left: 10px;
-      bottom: 10px;
-      z-index: 20;
-      background: rgba(15,23,42,.76);
-      color: #e5e7eb;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 999px;
-      padding: 7px 11px;
-      font-size: 11px;
-      backdrop-filter: blur(8px);
-      pointer-events: none;
-    }
-    .yellow-text { color: #facc15; }
-    .red-text { color: #ef4444; }
-    .pulse { animation: pulseText .8s infinite; }
-    body.flash-active { animation: shock-flash .6s ease-out; }
-    body.accident-active { background: #dc2626; animation: electrocuted-shake .4s infinite; }
-    body.accident-active .app-shell { filter: contrast(1.25) saturate(1.3); }
-    .patient-chest.shock-visual { background: #fff; transform: scale(1.04); box-shadow: 0 0 38px rgba(239,68,68,.55); }
-
-    @media (max-width: 900px) {
-      body { align-items: flex-start; padding: 10px; }
-      .app-shell { grid-template-columns: 1fr; gap: 12px; max-width: 460px; }
-      .aed-machine, .training-area { min-height: auto; padding: 14px; border-width: 5px; border-radius: 24px; }
-      .control-row { padding: 12px 0; gap: 28px; }
-      .power-btn { width: 66px; height: 66px; }
-      .shock-btn { width: 78px; height: 78px; font-size: 14px; }
-      #ecg-canvas { height: 70px; }
-      .status-screen { min-height: 64px; font-size: 15px; }
-      .patient-chest { width: 270px; height: 270px; }
-      .pad-target, .pad-item { width: 60px; height: 78px; font-size: 10px; border-width: 3px; }
-      .pad-target.target-pad1 { top: 42px; left: 28px; }
-      .pad-target.target-pad2 { bottom: 32px; right: 28px; }
-      .pad-storage-box { min-height: 100px; }
-      .install-status { display: none; }
-    }
-
-    @media (max-width: 380px) {
-      .patient-chest { width: 244px; height: 244px; }
-      .pad-target, .pad-item { width: 54px; height: 70px; }
-      .scenario-panel { font-size: 12px; }
-    }
-  </style>
+        /* 觸控拖曳樣式 */
+        .touch-dragging {
+            position: fixed !important;
+            z-index: 9999 !important;
+            pointer-events: none !important;
+            transform: scale(1.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+    </style>
 </head>
-<body>
-  <div id="welcome-gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
-    <div class="gate-card">
-      <div class="gate-icon">⚡</div>
-      <h1 id="gate-title" class="gate-title">AED 數位模擬教學系統</h1>
-      <p class="gate-text">V2 離線穩定版。請先點擊下方按鈕，解鎖行動裝置的語音與節拍音，之後即可開始操作。</p>
-      <button id="btn-unlock-audio" class="primary-btn" type="button">進入模擬教學（解鎖語音）</button>
-      <div id="line-warning" class="line-warning">
-        <strong>⚠️ 偵測到 LINE 內建視窗：</strong><br />LINE 可能封鎖語音。建議點右上角「•••」後選擇「在 Safari / Chrome 中開啟」。
-      </div>
+<body id="body-bg" class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4 font-sans select-none touch-none transition-colors duration-200">
+
+    <div class="flex flex-col lg:flex-row gap-8 items-stretch justify-center w-full max-w-6xl">
+        
+        <div class="w-full max-w-md bg-amber-500 border-8 border-amber-600 rounded-3xl p-6 shadow-2xl relative flex flex-col justify-between">
+            <div>
+                <div class="text-center text-white font-black text-3xl tracking-wider mb-4 drop-shadow">
+                    ▲ AED 模擬教學器
+                </div>
+
+                <div id="screen-container" class="bg-slate-950 rounded-xl border-4 border-slate-700 overflow-hidden mb-4 shadow-inner">
+                    <canvas id="ecg-canvas" class="w-full h-24 border-b border-slate-700 opacity-0 transition-opacity duration-500" width="400" height="100"></canvas>
+                    
+                    <div class="bg-slate-900 text-green-400 font-mono p-4 min-h-[80px] flex items-center justify-center text-center text-xl">
+                        <div id="status-screen">機器未開機<br>請按下綠色電源鍵</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border-2 border-slate-800 p-4 rounded-xl grid grid-cols-2 gap-4 mb-6 shadow-inner">
+                    <div class="flex flex-col items-center gap-2">
+                        <div id="led-dot-pads" class="w-10 h-10 bg-slate-700 rounded-full border-2 border-slate-600 transition-all duration-200"></div>
+                        <div class="text-slate-300 font-black text-xs tracking-wider">貼緊貼片</div>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div id="led-dot-analyze" class="w-10 h-10 bg-slate-700 rounded-full border-2 border-slate-600 transition-all duration-200"></div>
+                        <div class="text-slate-300 font-black text-xs tracking-wider">分析心律</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 items-center my-4">
+                <button id="btn-power" class="w-20 h-20 bg-green-600 hover:bg-green-500 active:scale-95 border-4 border-green-700 text-white font-black rounded-full shadow-lg flex items-center justify-center text-md transition-all cursor-pointer">
+                    ON/OFF
+                </button>
+                <div class="text-white font-bold text-xs -mt-4">1. 開機</div>
+
+                <button id="btn-shock" class="w-24 h-24 bg-red-700 text-red-100 font-black rounded-full shadow-2xl flex items-center justify-center text-xl transition-all border-4 border-red-900 opacity-40 cursor-not-allowed" disabled>
+                    ⚡<br>電擊
+                </button>
+                <div class="text-white font-bold text-xs -mt-4">2. 電擊鈕</div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-amber-400 text-xs text-amber-900 flex justify-between">
+                <span>情境設定：</span>
+                <label class="cursor-pointer"><input type="radio" name="scenario" value="shock" checked> 需要電擊(VF)</label>
+                <label class="cursor-pointer"><input type="radio" name="scenario" value="noshock"> 不需要(Asystole)</label>
+            </div>
+        </div>
+
+        <div id="training-area" class="w-full max-w-md bg-white p-6 rounded-3xl shadow-xl border-4 border-gray-200 flex flex-col justify-between items-center opacity-30 pointer-events-none transition-opacity duration-500">
+            
+            <div class="w-full text-center border-b border-gray-100 pb-3 mb-4">
+                <h3 class="text-gray-800 font-extrabold text-lg">操作面板：貼片正確黏貼演練</h3>
+                <p class="text-xs text-gray-500 mt-1">請將貼片確實黏貼在對應的警示虛線框內</p>
+            </div>
+            
+            <div id="anni-chest" class="w-64 h-80 relative flex items-center justify-center bg-slate-50 rounded-2xl border border-gray-100 shadow-inner p-2 transition-all duration-100">
+                
+                <svg viewBox="0 0 200 260" class="w-full h-full drop-shadow-md">
+                    <path d="M80,50 L80,25 Q100,20 120,25 L120,50 Z" fill="#e8c39e" stroke="#d4ab84" stroke-width="1.5" />
+                    <path d="M40,75 C20,85 15,110 15,140 L25,260 L175,260 L185,140 C185,110 180,85 160,75 C140,65 130,50 130,50 L70,50 C70,50 60,65 40,75 Z" fill="#f3d1b0" stroke="#d4ab84" stroke-width="2" />
+                    <path d="M70,52 Q100,65 130,52" fill="none" stroke="#d4ab84" stroke-width="1.5" stroke-linecap="round" />
+                    <path d="M35,80 Q70,82 95,62" fill="none" stroke="#d4ab84" stroke-width="1.5" stroke-linecap="round" />
+                    <path d="M165,80 Q130,82 105,62" fill="none" stroke="#d4ab84" stroke-width="1.5" stroke-linecap="round" />
+                    <path d="M55,130 Q100,145 145,130" fill="none" stroke="#d4ab84" stroke-width="1.2" opacity="0.6" />
+                    <path d="M100,65 L100,210" fill="none" stroke="#d4ab84" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.5" />
+                    <path d="M40,170 Q60,175 75,165" fill="none" stroke="#d4ab84" stroke-width="1" opacity="0.5" />
+                    <path d="M160,170 Q140,175 125,165" fill="none" stroke="#d4ab84" stroke-width="1" opacity="0.5" />
+                </svg>
+                
+                <div id="target-pad1" data-target="pad1" class="pad-target w-16 h-20 border-4 border-dashed border-red-500 rounded-xl absolute top-14 left-7 flex items-center justify-center text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all">
+                    放置右胸
+                </div>
+
+                <div id="target-pad2" data-target="pad2" class="pad-target w-16 h-20 border-4 border-dashed border-blue-500 rounded-xl absolute bottom-12 right-7 flex items-center justify-center text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all">
+                    放置左下肋
+                </div>
+            </div>
+
+            <div id="pad-storage-box" class="w-full mt-4 p-4 bg-slate-100 rounded-2xl border-2 border-slate-200 flex justify-around shadow-inner relative">
+                <div id="pad1" draggable="true" class="pad-item w-16 h-20 bg-white border-4 border-red-500 rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[11px] font-black text-red-600 transition-transform">
+                    <span>⚡ 貼片</span><span class="text-[9px] font-medium">(右上胸)</span>
+                </div>
+                <div id="pad2" draggable="true" class="pad-item w-16 h-20 bg-white border-4 border-blue-500 rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[11px] font-black text-blue-600 transition-transform">
+                    <span>⚡ 貼片</span><span class="text-[9px] font-medium">(左下肋)</span>
+                </div>
+            </div>
+        </div>
+
     </div>
-  </div>
 
-  <div id="line-browser-alert" class="line-alert hidden" role="dialog" aria-modal="true" aria-labelledby="line-title">
-    <div class="line-card">
-      <div class="line-icon">⚠️</div>
-      <h2 id="line-title" class="line-title">建議改用外部瀏覽器</h2>
-      <p class="line-text">目前看起來是在 LINE 內建視窗。AED 教學語音與節拍音可能無法正常播放。請點右上角「•••」→「在 Safari / Chrome 中開啟」。</p>
-      <button id="btn-close-line-alert" class="primary-btn" type="button">我知道了，仍要進入測試</button>
-      <button id="btn-copy-line-tip" class="secondary-btn" type="button">複製開啟提醒文字</button>
-    </div>
-  </div>
-
-  <main class="app-shell" aria-label="AED 模擬教學器">
-    <section class="aed-machine" aria-label="AED 主機面板">
-      <div>
-        <div class="machine-title">▲ AED 模擬教學器 V2.3</div>
-        <div class="screen-container">
-          <canvas id="ecg-canvas" width="420" height="88" aria-label="心電圖模擬畫面"></canvas>
-          <div class="status-screen"><div id="status-screen">機器未開機<br />請按下綠色電源鍵</div></div>
-        </div>
-        <div class="led-panel" aria-label="AED 指示燈">
-          <div class="led-item"><div id="led-dot-pads" class="led-dot"></div><span>貼緊貼片</span></div>
-          <div class="led-item"><div id="led-dot-analyze" class="led-dot"></div><span>分析心律</span></div>
-        </div>
-      </div>
-
-      <div class="control-row">
-        <div class="control-block">
-          <button id="btn-power" class="round-btn power-btn" type="button">ON/OFF</button>
-          <div class="control-caption">1. 開機 / 重置</div>
-        </div>
-        <div class="control-block">
-          <button id="btn-shock" class="round-btn shock-btn" type="button" disabled>⚡<br />電擊</button>
-          <div class="control-caption">2. 電擊鈕</div>
-        </div>
-      </div>
-
-      <div class="scenario-panel" aria-label="情境設定">
-        <span>情境設定：</span>
-        <label><input type="radio" name="scenario" value="shock" checked /> 需要電擊</label>
-        <label><input type="radio" name="scenario" value="noshock" /> 不需要電擊</label>
-      </div>
-    </section>
-
-    <section id="training-area" class="training-area disabled" aria-label="貼片正確黏貼演練區">
-      <div class="training-title">操作面板：貼片正確黏貼演練</div>
-      <div id="anni-chest" class="patient-chest" aria-label="病患胸部模型">
-        <svg viewBox="0 0 200 260" aria-hidden="true">
-          <path d="M80,50 L80,25 Q100,20 120,25 L120,50 Z" fill="#e8c39e" stroke="#d4ab84" stroke-width="1.5" />
-          <path d="M40,75 C20,85 15,110 15,140 L25,260 L175,260 L185,140 C185,110 180,85 160,75 C140,65 130,50 130,50 L70,50 C70,50 60,65 40,75 Z" fill="#f3d1b0" stroke="#d4ab84" stroke-width="2" />
-          <path d="M70,52 Q100,65 130,52" fill="none" stroke="#d4ab84" stroke-width="1.5" stroke-linecap="round" />
-          <path d="M35,80 Q70,82 95,62" fill="none" stroke="#d4ab84" stroke-width="1.5" stroke-linecap="round" />
-          <path d="M165,80 Q130,82 105,62" fill="none" stroke="#d4ab84" stroke-width="1.5" stroke-linecap="round" />
-          <path d="M55,130 Q100,145 145,130" fill="none" stroke="#d4ab84" stroke-width="1.2" opacity="0.6" />
-          <path d="M100,65 L100,210" fill="none" stroke="#d4ab84" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.5" />
-          <path d="M40,170 Q60,175 75,165" fill="none" stroke="#d4ab84" stroke-width="1" opacity="0.5" />
-          <path d="M160,170 Q140,175 125,165" fill="none" stroke="#d4ab84" stroke-width="1" opacity="0.5" />
-        </svg>
-        <div id="target-pad1" data-target="pad1" class="pad-target target-pad1">放置<br />右胸</div>
-        <div id="target-pad2" data-target="pad2" class="pad-target target-pad2">放置<br />左下肋</div>
-        <div id="danger-overlay" class="danger-overlay" aria-hidden="true"></div>
-      </div>
-
-      <div id="pad-storage-box" class="pad-storage-box" aria-label="AED 貼片放置區">
-        <div id="pad1" class="pad-item pad-red" data-pad="pad1" role="button" tabindex="0"><span>⚡ 貼片</span><small>右上</small></div>
-        <div id="pad2" class="pad-item pad-blue" data-pad="pad2" role="button" tabindex="0"><span>⚡ 貼片</span><small>左下</small></div>
-      </div>
-    </section>
-  </main>
-
-  <div id="install-status" class="install-status">V2.3 離線版</div>
-
-  <script>
-    'use strict';
-
-    class ECGChart {
-      constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d');
-        this.width = this.canvas.width;
-        this.height = this.canvas.height;
-        this.points = [];
-        this.x = 0;
-        this.speed = 2;
-        this.type = 'NORMAL';
-        this.animationId = null;
-        this.cprTriggered = false;
-      }
-      setType(type) {
-        this.type = type;
-        this.points = [];
-        this.x = 0;
-      }
-      triggerCprPulse() { this.cprTriggered = true; }
-      start() {
-        this.canvas.style.opacity = '1';
-        if (!this.animationId) this.animate();
-      }
-      stop() {
-        this.canvas.style.opacity = '0';
-        if (this.animationId) {
-          cancelAnimationFrame(this.animationId);
-          this.animationId = null;
-        }
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        this.points = [];
-        this.x = 0;
-      }
-      animate() {
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        this.drawGrid();
-        this.generatePoint();
-        this.drawWave();
-        this.animationId = requestAnimationFrame(() => this.animate());
-      }
-      drawGrid() {
-        this.ctx.strokeStyle = 'rgba(74, 222, 128, 0.14)';
-        this.ctx.lineWidth = 0.5;
-        for (let i = 0; i < this.width; i += 20) {
-          this.ctx.beginPath();
-          this.ctx.moveTo(i, 0);
-          this.ctx.lineTo(i, this.height);
-          this.ctx.stroke();
-        }
-        for (let i = 0; i < this.height; i += 20) {
-          this.ctx.beginPath();
-          this.ctx.moveTo(0, i);
-          this.ctx.lineTo(this.width, i);
-          this.ctx.stroke();
-        }
-      }
-      generatePoint() {
-        let y = this.height / 2;
-        switch (this.type) {
-          case 'VF':
-            y += (Math.random() - 0.5) * (this.height * 0.64);
-            break;
-          case 'ASYSTOLE':
-            y += (Math.random() - 0.5) * 3.5;
-            break;
-          case 'CPR':
-            if (this.cprTriggered) {
-              y -= this.height * 0.38;
-              this.cprTriggered = false;
-            } else {
-              y += (Math.random() - 0.5) * 5;
+    <script>
+        // --- 心律圖 (ECG) 繪製類別 ---
+        class ECGChart {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId); this.ctx = this.canvas.getContext('2d');
+                this.width = this.canvas.width; this.height = this.canvas.height;
+                this.points = []; this.x = 0; this.speed = 2; this.type = 'NORMAL'; this.animationId = null; this.cprTriggered = false; 
             }
-            break;
-          case 'NORMAL':
-          default:
-            y += (Math.random() - 0.5) * (this.height * 0.20);
-            break;
-        }
-        this.points.push({ x: this.x, y });
-        this.x += this.speed;
-        if (this.x > this.width) {
-          this.x = 0;
-          this.points = [];
-        }
-      }
-      drawWave() {
-        this.ctx.strokeStyle = '#4ade80';
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        for (let i = 0; i < this.points.length; i += 1) {
-          if (i === 0) this.ctx.moveTo(this.points[i].x, this.points[i].y);
-          else this.ctx.lineTo(this.points[i].x, this.points[i].y);
-        }
-        this.ctx.stroke();
-      }
-    }
-
-    const STATES = Object.freeze({
-      OFF: 'OFF',
-      POWER_ON: 'POWER_ON',
-      WAIT_PADS: 'WAIT_PADS',
-      ANALYZING: 'ANALYZING',
-      SHOCK_ADVISED: 'SHOCK_ADVISED',
-      SHOCKING: 'SHOCKING',
-      CPR: 'CPR',
-      ACCIDENT: 'ACCIDENT'
-    });
-
-    let currentState = STATES.OFF;
-    let cprInterval = null;
-    let warningVoiceInterval = null;
-    let padsTimeoutInterval = null;
-    let chargeInterval = null;
-    let transitionTimer = null;
-    let audioCtx = null;
-    let cprOscillator = null;
-    let cprGain = null;
-    let attachedPadsCount = 0;
-    let dragState = null;
-
-    const ecg = new ECGChart('ecg-canvas');
-    const screen = document.getElementById('status-screen');
-    const btnPower = document.getElementById('btn-power');
-    const btnShock = document.getElementById('btn-shock');
-    const ledDotPads = document.getElementById('led-dot-pads');
-    const ledDotAnalyze = document.getElementById('led-dot-analyze');
-    const trainingArea = document.getElementById('training-area');
-    const anniChest = document.getElementById('anni-chest');
-    const dangerOverlay = document.getElementById('danger-overlay');
-    const padStorageBox = document.getElementById('pad-storage-box');
-    const installStatus = document.getElementById('install-status');
-
-    function clearAllTimers() {
-      stopCprToneLoop();
-      [warningVoiceInterval, padsTimeoutInterval, chargeInterval].forEach((timer) => {
-        if (timer) clearInterval(timer);
-      });
-      if (transitionTimer) clearTimeout(transitionTimer);
-      warningVoiceInterval = null;
-      padsTimeoutInterval = null;
-      chargeInterval = null;
-      transitionTimer = null;
-    }
-
-    function safeCancelSpeech() {
-      try { window.speechSynthesis.cancel(); } catch (err) { console.warn('語音取消受阻:', err); }
-    }
-
-    function speak(text, options = {}) {
-      if (!text) return;
-      try {
-        if (options.cancel !== false) window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'zh-TW';
-        utterance.rate = options.rate || 1.0;
-        utterance.pitch = options.pitch || 1.0;
-        utterance.volume = options.volume || 1.0;
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn('語音播放受阻:', err);
-      }
-    }
-
-    async function ensureAudioContext() {
-      try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        return true;
-      } catch (err) {
-        console.warn('AudioContext 建立失敗:', err);
-        return false;
-      }
-    }
-
-    function playBeep(frequency, duration, volume = 0.1) {
-      try {
-        // V2.3：保留原本直接發聲方式，並在需要時喚醒 AudioContext。
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = frequency;
-        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-      } catch (err) {
-        console.warn('音訊播報受阻:', err);
-      }
-    }
-
-    function stopCprToneLoop() {
-      if (cprInterval) clearInterval(cprInterval);
-      cprInterval = null;
-      try {
-        if (cprGain && audioCtx) {
-          const now = audioCtx.currentTime;
-          cprGain.gain.cancelScheduledValues(now);
-          cprGain.gain.setValueAtTime(0, now);
-        }
-        if (cprOscillator) {
-          cprOscillator.stop();
-          cprOscillator.disconnect();
-        }
-        if (cprGain) cprGain.disconnect();
-      } catch (_) {}
-      cprOscillator = null;
-      cprGain = null;
-    }
-
-    function cprPulseOnce() {
-      if (currentState !== STATES.CPR) return;
-      try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-        const now = audioCtx.currentTime;
-        if (cprGain) {
-          cprGain.gain.cancelScheduledValues(now);
-          cprGain.gain.setValueAtTime(0.20, now);
-          cprGain.gain.setValueAtTime(0.20, now + 0.10);
-          cprGain.gain.setValueAtTime(0.0, now + 0.105);
-        } else {
-          playBeep(1000, 0.10, 0.20);
-        }
-      } catch (err) {
-        console.warn('CPR 節拍音播放受阻:', err);
-      }
-      screen.innerHTML = '請立即開始持續壓胸<br /><span class="yellow-text">嗶！110 BPM</span>';
-      ecg.triggerCprPulse();
-    }
-
-    async function startCprToneLoop() {
-      stopCprToneLoop();
-      await ensureAudioContext();
-      if (currentState !== STATES.CPR || !audioCtx) return;
-      try {
-        cprOscillator = audioCtx.createOscillator();
-        cprGain = audioCtx.createGain();
-        cprOscillator.type = 'sine';
-        cprOscillator.frequency.value = 1000;
-        cprGain.gain.setValueAtTime(0, audioCtx.currentTime);
-        cprOscillator.connect(cprGain);
-        cprGain.connect(audioCtx.destination);
-        cprOscillator.start();
-      } catch (err) {
-        console.warn('CPR 連續音訊引擎啟動失敗，改用單次嗶聲:', err);
-        cprOscillator = null;
-        cprGain = null;
-      }
-      cprPulseOnce();
-      cprInterval = setInterval(cprPulseOnce, 545);
-    }
-
-    function playZappingNoise() {
-      try {
-        if (!audioCtx) return;
-        const bufferSize = Math.floor(audioCtx.sampleRate * 0.42);
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i += 1) data[i] = (Math.random() - 0.5) * 0.55;
-        const noise = audioCtx.createBufferSource();
-        const gain = audioCtx.createGain();
-        gain.gain.value = 0.22;
-        noise.buffer = buffer;
-        noise.connect(gain);
-        gain.connect(audioCtx.destination);
-        noise.start();
-      } catch (err) {
-        console.warn('觸電音效播放受阻:', err);
-      }
-    }
-
-    function updateHardwareLeds() {
-      ledDotPads.className = 'led-dot';
-      ledDotAnalyze.className = 'led-dot';
-      switch (currentState) {
-        case STATES.POWER_ON:
-        case STATES.WAIT_PADS:
-          ledDotPads.classList.add('amber');
-          break;
-        case STATES.ANALYZING:
-          ledDotPads.classList.add('green');
-          ledDotAnalyze.classList.add('green-flash');
-          break;
-        case STATES.SHOCK_ADVISED:
-        case STATES.SHOCKING:
-        case STATES.CPR:
-          ledDotPads.classList.add('green');
-          ledDotAnalyze.classList.add('green');
-          break;
-        default:
-          break;
-      }
-    }
-
-    function setShockButtonReady(isReady) {
-      btnShock.disabled = !isReady;
-      btnShock.classList.toggle('ready', isReady);
-    }
-
-    function setBodyVisual(mode) {
-      document.body.classList.toggle('flash-active', mode === 'flash');
-      document.body.classList.toggle('accident-active', mode === 'accident');
-      anniChest.classList.toggle('shock-visual', mode === 'shock');
-    }
-
-    function changeState(newState) {
-      currentState = newState;
-      clearAllTimers();
-      setShockButtonReady(false);
-      dangerOverlay.classList.remove('show');
-      setBodyVisual(null);
-      updateHardwareLeds();
-
-      switch (currentState) {
-        case STATES.OFF:
-          screen.innerHTML = '機器未開機<br />請按下綠色電源鍵';
-          btnPower.classList.remove('off-mode');
-          trainingArea.classList.add('disabled');
-          resetPads();
-          ecg.stop();
-          safeCancelSpeech();
-          break;
-
-        case STATES.POWER_ON:
-          screen.innerHTML = '開機中...<br />請保持冷靜';
-          btnPower.classList.add('off-mode');
-          ecg.start();
-          ecg.setType('NORMAL');
-          playBeep(1200, 0.08, 0.11);
-          setTimeout(() => playBeep(1200, 0.08, 0.11), 150);
-          setTimeout(() => playBeep(1500, 0.15, 0.11), 310);
-          speak('請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。');
-          transitionTimer = setTimeout(() => {
-            if (currentState === STATES.POWER_ON) changeState(STATES.WAIT_PADS);
-          }, 5200);
-          break;
-
-        case STATES.WAIT_PADS:
-          screen.innerHTML = '請撕開包裝<br />將貼片拖曳至右胸與左下肋';
-          trainingArea.classList.remove('disabled');
-          padsTimeoutInterval = setInterval(() => {
-            if (currentState === STATES.WAIT_PADS && attachedPadsCount < 2) {
-              speak('請撕開紅色貼片，緊貼在病患右上胸。請撕開藍色貼片，緊貼在病患左下肋。');
+            setType(type) { this.type = type; this.points = []; this.x = 0; }
+            triggerCprPulse() { this.cprTriggered = true; }
+            start() { this.canvas.style.opacity = '1'; if (!this.animationId) this.animate(); }
+            stop() {
+                this.canvas.style.opacity = '0';
+                if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; this.ctx.clearRect(0, 0, this.width, this.height); }
             }
-          }, 15000);
-          break;
-
-        case STATES.ANALYZING:
-          screen.innerHTML = '正在分析心律...<br />請勿碰觸病患！';
-          trainingArea.classList.add('disabled');
-          speak('正在分析心律，請勿碰觸病患。');
-          ecg.setType('NORMAL');
-          transitionTimer = setTimeout(() => {
-            if (currentState !== STATES.ANALYZING) return;
-            const scenario = document.querySelector('input[name="scenario"]:checked').value;
-            if (scenario === 'shock') {
-              ecg.setType('VF');
-              changeState(STATES.SHOCK_ADVISED);
-            } else {
-              ecg.setType('ASYSTOLE');
-              speak('不需要電擊。');
-              transitionTimer = setTimeout(() => {
-                if (currentState === STATES.ANALYZING) changeState(STATES.CPR);
-              }, 2000);
+            animate() {
+                this.ctx.clearRect(0, 0, this.width, this.height); this.drawGrid(); this.generatePoint(); this.drawWave(); 
+                this.animationId = requestAnimationFrame(() => this.animate());
             }
-          }, 5000);
-          break;
-
-        case STATES.SHOCK_ADVISED:
-          screen.innerHTML = '建議電擊！正在充電！<br />請遠離病患！';
-          speak('建議電擊，正在充電。請遠離病患！');
-          let chargeTimer = 0;
-          chargeInterval = setInterval(() => {
-            if (currentState !== STATES.SHOCK_ADVISED) return;
-            playBeep(800 + chargeTimer * 80, 0.09, 0.09);
-            chargeTimer += 1;
-            if (chargeTimer > 15) {
-              clearInterval(chargeInterval);
-              chargeInterval = null;
-              screen.innerHTML = '充電完成！<br />請按下閃爍的電擊鈕！';
-              setShockButtonReady(true);
-              const warning = () => speak('請遠離病患！不要碰觸病患！按下閃爍的電擊鈕！');
-              warning();
-              warningVoiceInterval = setInterval(warning, 5500);
+            drawGrid() {
+                this.ctx.strokeStyle = 'rgba(74, 222, 128, 0.15)'; this.ctx.lineWidth = 0.5;
+                for (let i = 0; i < this.width; i += 20) { this.ctx.beginPath(); this.ctx.moveTo(i, 0); this.ctx.lineTo(i, this.height); this.ctx.stroke(); }
+                for (let i = 0; i < this.height; i += 20) { this.ctx.beginPath(); this.ctx.moveTo(0, i); this.ctx.lineTo(this.width, i); this.ctx.stroke(); }
             }
-          }, 200);
-          break;
+            generatePoint() {
+                let y = this.height / 2; 
+                switch (this.type) {
+                    case 'VF': y += (Math.random() - 0.5) * 60; break;
+                    case 'ASYSTOLE': y += (Math.random() - 0.5) * 4; break;
+                    case 'CPR': if (this.cprTriggered) { y -= 40; this.cprTriggered = false; } else { y += (Math.random() - 0.5) * 8; } break;
+                    case 'NORMAL': default: y += (Math.random() - 0.5) * 20; break;
+                }
+                this.points.push({ x: this.x, y: y }); this.x += this.speed;
+                if (this.x > this.width) { this.x = 0; this.points = []; }
+            }
+            drawWave() {
+                this.ctx.strokeStyle = '#4ade80'; this.ctx.lineWidth = 2; this.ctx.beginPath();
+                for (let i = 0; i < this.points.length; i++) {
+                    if (i === 0) this.ctx.moveTo(this.points[i].x, this.points[i].y); else this.ctx.lineTo(this.points[i].x, this.points[i].y);
+                }
+                this.ctx.stroke();
+            }
+        }
 
-        case STATES.SHOCKING:
-          screen.innerHTML = '⚡ 電擊放電中 ⚡';
-          setBodyVisual('shock');
-          document.body.classList.add('flash-active');
-          playBeep(2000, 0.8, 0.12);
-          speak('電擊已完成。');
-          transitionTimer = setTimeout(() => {
-            document.body.classList.remove('flash-active');
-            if (currentState === STATES.SHOCKING) changeState(STATES.CPR);
-          }, 1500);
-          break;
+        // --- AED 主邏輯 ---
+        const STATES = { OFF: 'OFF', POWER_ON: 'POWER_ON', WAIT_PADS: 'WAIT_PADS', ANALYZING: 'ANALYZING', SHOCK_ADVISED: 'SHOCK_ADVISED', SHOCKING: 'SHOCKING', CPR: 'CPR' };
+        let currentState = STATES.OFF;
+        let cprInterval = null;
+        let warningVoiceInterval = null; 
+        let audioCtx = null;
+        let attachedPadsCount = 0;
 
-        case STATES.CPR:
-          screen.innerHTML = '請立即開始持續壓胸';
-          speak('請立即開始持續壓胸。');
-          ecg.setType('CPR');
-          startCprToneLoop();
-          break;
+        const ecg = new ECGChart('ecg-canvas');
 
-        case STATES.ACCIDENT:
-          ecg.setType('ASYSTOLE');
-          screen.innerHTML = '<span class="red-text pulse">⚠️ 嚴重事故 ⚠️<br />施救者不幸觸電！</span>';
-          setBodyVisual('accident');
-          playZappingNoise();
-          speak('警告！警告！有人觸碰病患！施救者不幸觸電！電擊失敗！請立即按電源鍵重置系統！');
-          break;
+        const screen = document.getElementById('status-screen');
+        const btnPower = document.getElementById('btn-power');
+        const btnShock = document.getElementById('btn-shock');
+        const ledDotPads = document.getElementById('led-dot-pads');
+        const ledDotAnalyze = document.getElementById('led-dot-analyze');
+        const trainingArea = document.getElementById('training-area');
+        const bodyBg = document.getElementById('body-bg');
+        const anniChest = document.getElementById('anni-chest');
 
-        default:
-          break;
-      }
-      updateHardwareLeds();
-    }
+        function speak(text) {
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-TW'; utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            } catch(e) {
+                console.warn("語音播放受阻:", e);
+            }
+        }
 
-    function handleAnniInteraction(event) {
-      if (event.target.closest && event.target.closest('.pad-item')) return;
-      if ([STATES.ANALYZING, STATES.SHOCK_ADVISED, STATES.SHOCKING].includes(currentState)) {
-        event.preventDefault();
-        changeState(STATES.ACCIDENT);
-      }
-    }
+        function playBeep(frequency, duration) {
+            try {
+                if (!audioCtx || audioCtx.state === 'suspended') return; 
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = 'sine'; osc.frequency.value = frequency; gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {
+                console.warn("音訊播放受阻:", e);
+            }
+        }
 
-    function getTargetUnderPoint(x, y) {
-      const targets = Array.from(document.querySelectorAll('.pad-target'));
-      return targets.find((target) => {
-        const rect = target.getBoundingClientRect();
-        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-      }) || null;
-    }
+        function updateHardwareLeds() {
+            ledDotPads.className = "w-10 h-10 bg-slate-700 rounded-full border-2 border-slate-600 transition-all duration-200 shadow-none";
+            ledDotAnalyze.className = "w-10 h-10 bg-slate-700 rounded-full border-2 border-slate-600 transition-all duration-200 shadow-none";
 
-    function startPadDrag(event) {
-      const pad = event.currentTarget;
-      if (currentState !== STATES.WAIT_PADS || pad.classList.contains('locked')) return;
-      event.preventDefault();
-      const rect = pad.getBoundingClientRect();
-      dragState = {
-        pad,
-        pointerId: event.pointerId,
-        offsetX: event.clientX - rect.left,
-        offsetY: event.clientY - rect.top,
-        width: rect.width,
-        height: rect.height,
-        originalParent: pad.parentElement
-      };
-      pad.setPointerCapture(event.pointerId);
-      pad.classList.add('dragging');
-      pad.style.width = `${rect.width}px`;
-      pad.style.height = `${rect.height}px`;
-      movePad(event.clientX, event.clientY);
-    }
+            switch (currentState) {
+                case STATES.OFF: break;
+                case STATES.POWER_ON:
+                case STATES.WAIT_PADS:
+                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600');
+                    ledDotPads.classList.add('led-amber-flashing', 'border-amber-300');
+                    break;
+                case STATES.ANALYZING:
+                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600');
+                    ledDotPads.classList.add('bg-green-500', 'border-green-300');
+                    ledDotPads.style.boxShadow = "0 0 20px #22c55e, inset 0 0 8px rgba(255,255,255,0.6)";
+                    ledDotAnalyze.classList.remove('bg-slate-700', 'border-slate-600');
+                    ledDotAnalyze.classList.add('led-green-flashing', 'border-green-300');
+                    break;
+                case STATES.SHOCK_ADVISED:
+                case STATES.SHOCKING:
+                case STATES.CPR:
+                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600');
+                    ledDotPads.classList.add('bg-green-500', 'border-green-300');
+                    ledDotPads.style.boxShadow = "0 0 15px #22c55e";
+                    ledDotAnalyze.classList.remove('bg-slate-700', 'border-slate-600');
+                    ledDotAnalyze.classList.add('bg-green-500', 'border-green-300');
+                    ledDotAnalyze.style.boxShadow = "0 0 15px #22c55e";
+                    break;
+            }
+        }
 
-    function movePad(clientX, clientY) {
-      if (!dragState) return;
-      dragState.pad.style.left = `${clientX - dragState.offsetX}px`;
-      dragState.pad.style.top = `${clientY - dragState.offsetY}px`;
-    }
+        function changeState(newState) {
+            currentState = newState;
+            clearInterval(cprInterval);
+            clearInterval(warningVoiceInterval); 
+            
+            btnShock.disabled = true;
+            btnShock.classList.remove('blinking', 'bg-red-500', 'cursor-pointer');
+            btnShock.classList.add('bg-red-700', 'opacity-40', 'cursor-not-allowed');
 
-    function onPadMove(event) {
-      if (!dragState || dragState.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      movePad(event.clientX, event.clientY);
-    }
+            updateHardwareLeds();
 
-    function finishPadDrag(event) {
-      if (!dragState || dragState.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      const pad = dragState.pad;
-      try { pad.releasePointerCapture(event.pointerId); } catch (_) {}
-      pad.classList.remove('dragging');
-      pad.style.width = '';
-      pad.style.height = '';
-      pad.style.left = '';
-      pad.style.top = '';
-      const target = getTargetUnderPoint(event.clientX, event.clientY);
-      const padId = pad.dataset.pad;
-      dragState = null;
-      if (target) handlePadPlacement(padId, target);
-      else speak('請精確貼在指示位置。');
-    }
+            switch(currentState) {
+                case STATES.OFF:
+                    screen.innerHTML = "機器未開機<br>請按下綠色電源鍵";
+                    btnPower.className = "w-20 h-20 bg-green-600 hover:bg-green-500 active:scale-95 border-4 border-green-700 text-white font-black rounded-full shadow-lg flex items-center justify-center text-md transition-all cursor-pointer";
+                    trainingArea.classList.add('opacity-30', 'pointer-events-none');
+                    resetPads(); ecg.stop(); window.speechSynthesis.cancel();
+                    break;
 
-    function handlePadPlacement(padId, target) {
-      if (currentState !== STATES.WAIT_PADS) return;
-      if (padId === target.dataset.target) {
-        const pad = document.getElementById(padId);
-        target.innerHTML = '';
-        target.appendChild(pad);
-        pad.classList.add('locked');
-        pad.setAttribute('aria-label', '貼片已正確放置');
-        target.classList.add('placed');
-        attachedPadsCount += 1;
-        playBeep(1320, 0.08, 0.09);
-        if (attachedPadsCount === 2) changeState(STATES.ANALYZING);
-      } else {
-        speak('貼片位置不正確。請依照顏色與位置貼放。');
-        playBeep(220, 0.16, 0.08);
-      }
-    }
+                case STATES.POWER_ON:
+                    screen.innerHTML = "開機中...<br>請保持冷靜";
+                    btnPower.className = "w-20 h-20 bg-red-600 hover:bg-red-500 active:scale-95 border-4 border-red-700 text-white font-black rounded-full shadow-lg flex items-center justify-center text-md transition-all cursor-pointer";
+                    
+                    speak("請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。");
+                    ecg.start(); ecg.setType('NORMAL'); 
+                    setTimeout(() => { if(currentState === STATES.POWER_ON) changeState(STATES.WAIT_PADS); }, 5000);
+                    break;
 
-    function resetPads() {
-      attachedPadsCount = 0;
-      const pad1 = document.getElementById('pad1');
-      const pad2 = document.getElementById('pad2');
-      const target1 = document.getElementById('target-pad1');
-      const target2 = document.getElementById('target-pad2');
-      target1.className = 'pad-target target-pad1';
-      target2.className = 'pad-target target-pad2';
-      target1.innerHTML = '放置<br />右胸';
-      target2.innerHTML = '放置<br />左下肋';
-      [pad1, pad2].forEach((pad) => {
-        pad.classList.remove('locked', 'dragging');
-        pad.style.cssText = '';
-        pad.setAttribute('aria-label', pad.id === 'pad1' ? '紅色右上貼片' : '藍色左下貼片');
-      });
-      padStorageBox.appendChild(pad1);
-      padStorageBox.appendChild(pad2);
-    }
+                case STATES.WAIT_PADS:
+                    screen.innerHTML = "請撕開包裝<br>【將貼片拖曳至右胸與左下肋】";
+                    trainingArea.classList.remove('opacity-30', 'pointer-events-none');
+                    break;
 
-    document.getElementById('btn-unlock-audio').addEventListener('click', async () => {
-      await ensureAudioContext();
-      try {
-        const unlockUtterance = new SpeechSynthesisUtterance('');
-        unlockUtterance.lang = 'zh-TW';
-        window.speechSynthesis.speak(unlockUtterance);
-      } catch (_) {}
-      playBeep(880, 0.05, 0.04);
-      document.getElementById('welcome-gate').classList.add('hidden');
-    });
+                case STATES.ANALYZING:
+                    screen.innerHTML = "正在分析心律...<br>請勿碰觸病患！";
+                    trainingArea.classList.add('pointer-events-none');
+                    speak("正在分析心律，請勿碰觸病患。");
+                    ecg.setType('NORMAL'); 
 
-    btnPower.addEventListener('click', async () => {
-      await ensureAudioContext();
-      const nextState = (currentState === STATES.OFF || currentState === STATES.ACCIDENT) ? STATES.POWER_ON : STATES.OFF;
-      changeState(nextState);
-    });
+                    setTimeout(() => {
+                        if (currentState !== STATES.ANALYZING) return;
+                        const scenario = document.querySelector('input[name="scenario"]:checked').value;
+                        if (scenario === 'shock') { ecg.setType('VF'); changeState(STATES.SHOCK_ADVISED); } 
+                        else { ecg.setType('ASYSTOLE'); speak("不需要電擊。"); setTimeout(() => changeState(STATES.CPR), 2000); }
+                    }, 5000);
+                    break;
 
-    btnShock.addEventListener('click', () => {
-      if (currentState === STATES.SHOCK_ADVISED) changeState(STATES.SHOCKING);
-    });
+                case STATES.SHOCK_ADVISED:
+                    screen.innerHTML = "建議電擊！正在充電！<br>請遠離病患！";
+                    speak("建議電擊，正在充電。請遠離病患！");
+                    
+                    let chargeTimer = 0;
+                    const chargeInterval = setInterval(() => {
+                        if (currentState !== STATES.SHOCK_ADVISED) { clearInterval(chargeInterval); return; }
+                        playBeep(800 + (chargeTimer * 80), 0.1); chargeTimer++;
+                        
+                        if(chargeTimer > 15) {
+                            clearInterval(chargeInterval);
+                            screen.innerHTML = "充電完成！<br>請按下閃爍的電擊鈕！";
+                            
+                            const playWarning = () => {
+                                speak("請遠離病患！不要碰觸病患！按下閃爍的電擊鈕！");
+                            };
+                            playWarning();
+                            warningVoiceInterval = setInterval(playWarning, 5500); 
 
-    anniChest.addEventListener('pointerdown', handleAnniInteraction);
+                            btnShock.disabled = false; 
+                            btnShock.classList.remove('bg-red-700', 'opacity-40', 'cursor-not-allowed');
+                            btnShock.classList.add('bg-red-500', 'blinking', 'cursor-pointer');
+                        }
+                    }, 200);
+                    break;
 
-    document.querySelectorAll('.pad-item').forEach((pad) => {
-      pad.addEventListener('pointerdown', startPadDrag);
-      pad.addEventListener('pointermove', onPadMove);
-      pad.addEventListener('pointerup', finishPadDrag);
-      pad.addEventListener('pointercancel', finishPadDrag);
-      pad.addEventListener('keydown', (event) => {
-        if (currentState !== STATES.WAIT_PADS) return;
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        const target = document.querySelector(`[data-target="${pad.dataset.pad}"]`);
-        if (target) handlePadPlacement(pad.dataset.pad, target);
-      });
-    });
+                case STATES.SHOCKING:
+                    clearInterval(warningVoiceInterval); 
+                    screen.innerHTML = "⚡ 電擊放電中 ⚡"; 
+                    
+                    bodyBg.classList.add('flash-active');
+                    anniChest.classList.add('bg-white', 'scale-105', 'shadow-2xl', 'duration-75');
+                    
+                    playBeep(2000, 0.8); 
+                    speak("電擊已完成。");
+                    
+                    setTimeout(() => { 
+                        bodyBg.classList.remove('flash-active');
+                        anniChest.classList.remove('bg-white', 'scale-105', 'shadow-2xl', 'duration-75');
+                        if(currentState === STATES.SHOCKING) changeState(STATES.CPR); 
+                    }, 1500);
+                    break;
 
-    document.getElementById('btn-close-line-alert').addEventListener('click', () => {
-      document.getElementById('line-browser-alert').classList.add('hidden');
-    });
+                case STATES.CPR:
+                    screen.innerHTML = "請立即開始持續壓胸"; speak("請立即開始持續壓胸。"); ecg.setType('CPR'); 
+                    cprInterval = setInterval(() => {
+                        screen.innerHTML = `請立即開始持續壓胸<br>嗶！ (110 BPM)`; playBeep(1000, 0.1); ecg.triggerCprPulse();
+                    }, 545);
+                    break;
+            }
+        }
 
-    document.getElementById('btn-copy-line-tip').addEventListener('click', async () => {
-      const text = 'AED 模擬教學器建議使用 Safari / Chrome 開啟，LINE 內建視窗可能封鎖語音。';
-      try {
-        await navigator.clipboard.writeText(text);
-        speak('提醒文字已複製。');
-      } catch (_) {
-        speak('此瀏覽器不支援複製。');
-      }
-    });
+        // ================= 跨平台拖曳邏輯 =================
+        const pads = document.querySelectorAll('.pad-item');
+        const targets = document.querySelectorAll('.pad-target');
 
-    function isLineBrowser() {
-      const ua = navigator.userAgent || navigator.vendor || '';
-      return ua.includes('LINE');
-    }
-
-    async function registerServiceWorker() {
-      if (!('serviceWorker' in navigator)) {
-        installStatus.textContent = '離線版：此瀏覽器不支援 PWA 快取';
-        return;
-      }
-      if (location.protocol === 'file:') {
-        installStatus.textContent = '離線版：可直接開啟；PWA 快取需 localhost 或 https';
-        return;
-      }
-      try {
-        const registration = await navigator.serviceWorker.register('./sw.js');
-        installStatus.textContent = '離線版：PWA 快取已啟用';
-        registration.addEventListener('updatefound', () => {
-          installStatus.textContent = '離線版：偵測到新版本，重新整理後套用';
+        pads.forEach(pad => {
+            pad.addEventListener('dragstart', (e) => {
+                if (currentState !== STATES.WAIT_PADS) return;
+                e.dataTransfer.setData('text/plain', pad.id); pad.classList.add('dragging');
+            });
+            pad.addEventListener('dragend', () => pad.classList.remove('dragging'));
         });
-      } catch (err) {
-        console.warn('Service Worker 註冊失敗:', err);
-        installStatus.textContent = '離線版：PWA 快取註冊失敗；頁面仍可單機使用';
-      }
-    }
+        
+        targets.forEach(target => {
+            target.addEventListener('dragover', (e) => e.preventDefault());
+            target.addEventListener('drop', (e) => {
+                e.preventDefault(); const padId = e.dataTransfer.getData('text/plain');
+                handlePadPlacement(padId, target);
+            });
+        });
 
-    window.addEventListener('DOMContentLoaded', () => {
-      if (isLineBrowser()) {
-        document.getElementById('line-warning').classList.add('show');
-        document.getElementById('line-browser-alert').classList.remove('hidden');
-      }
-      registerServiceWorker();
-    });
-  </script>
+        pads.forEach(pad => {
+            let startX = 0, startY = 0;
+            pad.addEventListener('touchstart', (e) => {
+                if (currentState !== STATES.WAIT_PADS || pad.getAttribute('draggable') === 'false') return;
+                e.preventDefault(); const touch = e.touches[0]; const rect = pad.getBoundingClientRect();
+                startX = touch.clientX - rect.left; startY = touch.clientY - rect.top;
+                pad.style.width = rect.width + 'px'; pad.style.height = rect.height + 'px';
+                pad.classList.add('touch-dragging');
+                pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
+            }, { passive: false });
+
+            pad.addEventListener('touchmove', (e) => {
+                if (!pad.classList.contains('touch-dragging')) return;
+                e.preventDefault(); const touch = e.touches[0];
+                pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
+            }, { passive: false });
+
+            pad.addEventListener('touchend', (e) => {
+                if (!pad.classList.contains('touch-dragging')) return;
+                pad.classList.remove('touch-dragging');
+                pad.style.width = ''; pad.style.height = ''; pad.style.left = ''; pad.style.top = '';
+                const touch = e.changedTouches[0]; let matchedTarget = null;
+                targets.forEach(target => {
+                    const tRect = target.getBoundingClientRect();
+                    if (touch.clientX >= tRect.left && touch.clientX <= tRect.right &&
+                        touch.clientY >= tRect.top && touch.clientY <= tRect.bottom) { matchedTarget = target; }
+                });
+                if (matchedTarget) { handlePadPlacement(pad.id, matchedTarget); } else { speak("請精確貼在指示位置。"); }
+            });
+        });
+
+        function handlePadPlacement(padId, target) {
+            if (padId === target.getAttribute('data-target')) {
+                const draggedPad = document.getElementById(padId);
+                target.innerHTML = ''; target.appendChild(draggedPad);
+                draggedPad.setAttribute('draggable', 'false'); draggedPad.classList.remove('cursor-grab');
+                target.classList.remove('border-dashed'); target.classList.add('border-solid', 'bg-green-100');
+                attachedPadsCount++;
+                if (attachedPadsCount === 2) changeState(STATES.ANALYZING);
+            } else { speak("貼片位置不正確。"); }
+        }
+
+        function resetPads() {
+            attachedPadsCount = 0; const storageBox = document.getElementById('pad-storage-box');
+            const pad1 = document.getElementById('pad1'); const pad2 = document.getElementById('pad2');
+            document.getElementById('target-pad1').innerHTML = '放置右胸';
+            document.getElementById('target-pad1').className = 'pad-target w-16 h-20 border-4 border-dashed border-red-500 rounded-xl absolute top-14 left-7 flex items-center justify-center text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
+            document.getElementById('target-pad2').innerHTML = '放置左下肋';
+            document.getElementById('target-pad2').className = 'pad-target w-16 h-20 border-4 border-dashed border-blue-500 rounded-xl absolute bottom-12 right-7 flex items-center justify-center text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
+            pad1.setAttribute('draggable', 'true'); pad1.classList.add('cursor-grab');
+            pad2.setAttribute('draggable', 'true'); pad2.classList.add('cursor-grab');
+            storageBox.appendChild(pad1); storageBox.appendChild(pad2);
+            updateHardwareLeds();
+        }
+
+        // ================= 終極高穩定性開機監聽整合邏輯 =================
+        btnPower.addEventListener('click', async () => {
+            // 【硬核解鎖：第一層】不論音訊是否成功，強制推動 JavaScript 狀態機，保證畫面文字、燈號絕對要亮起
+            const targetState = (currentState === STATES.OFF) ? STATES.POWER_ON : STATES.OFF;
+            
+            // 【硬核解鎖：第二層】非同步處理音訊，被瀏覽器阻擋也不會卡死主執行緒
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+                // 丟一個空白語音給瀏覽器進行「聲道預熱」
+                const dummy = new SpeechSynthesisUtterance("");
+                window.speechSynthesis.speak(dummy);
+            } catch (audioError) {
+                console.warn("瀏覽器隱私政策限制了部分音訊自動播放，但機台仍將正常運作。");
+            }
+
+            // 最終執行開關機狀態變更
+            changeState(targetState);
+        });
+
+        btnShock.addEventListener('click', () => currentState === STATES.SHOCK_ADVISED ? changeState(STATES.SHOCKING) : null);
+    </script>
 </body>
 </html>
