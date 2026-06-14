@@ -3,18 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AED 模擬教學器 - 消防宣導專業版</title>
+    <title>AED 模擬教學器 - 現場安全防錯版</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
         @keyframes fast-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
+        /* 電擊放電強光動畫 */
         @keyframes shock-flash {
             0% { background-color: #ffffff; filter: brightness(2); }
             20% { background-color: #ef4444; }
             40% { background-color: #ffffff; }
             100% { background-color: rgb(243, 244, 246); }
         }
+        /* 致命觸電慘白顫抖動畫 */
+        @keyframes electrocuted-shake {
+            0%, 100% { transform: translate(0, 0) scale(1); filter: invert(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translate(-8px, 5px) scale(1.02); filter: invert(1); background-color: #000000; }
+            20%, 40%, 60%, 80% { transform: translate(8px, -5px) scale(0.98); filter: invert(0.8); background-color: #ffffff; }
+        }
+        /* 指示燈閃爍 */
         @keyframes led-flash-amber {
             0%, 100% { background-color: #f59e0b; box-shadow: 0 0 25px #f59e0b, inset 0 0 10px rgba(255,255,255,0.6); }
             50% { background-color: #334155; box-shadow: 0 0 0px transparent; }
@@ -26,6 +34,7 @@
         .led-amber-flashing { animation: led-flash-amber 0.4s infinite; }
         .led-green-flashing { animation: led-flash-green 0.8s infinite; }
         .flash-active { animation: shock-flash 0.6s ease-out; }
+        .shock-accident-active { animation: electrocuted-shake 0.4s infinite; }
         .dragging { opacity: 0.5; }
         #screen-container { box-shadow: inset 0 0 20px rgba(74, 222, 128, 0.2); }
         .touch-dragging {
@@ -39,7 +48,7 @@
         <div class="max-w-sm w-full bg-slate-800 border border-slate-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center">
             <div class="w-20 h-20 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-4xl mb-4 font-black">⚡</div>
             <h1 class="text-2xl font-black mb-2 tracking-wide text-amber-400">AED 數位模擬教學系統</h1>
-            <p class="text-xs text-slate-400 mb-6 leading-relaxed">為了確保在行動裝置上救護語音與壓胸節拍音能即時流暢播放，請點擊下方按鈕初始化互動環境。</p>
+            <p class="text-xs text-slate-400 mb-6 leading-relaxed">為了確保行動裝置上救護語音與壓胸節拍音能即時流暢播放，請點擊下方按鈕初始化互動環境。</p>
             
             <button id="btn-unlock-audio" class="w-full py-4 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black text-base rounded-xl shadow-lg transition-all cursor-pointer">
                 進入模擬教學 (解鎖語音)
@@ -100,7 +109,9 @@
             <div class="w-full text-center border-b border-gray-100 pb-1 mb-2">
                 <h3 class="text-gray-800 font-extrabold text-sm md:text-base">操作面板：貼片正確黏貼演練</h3>
             </div>
-            <div id="anni-chest" class="w-56 h-56 md:w-64 md:h-64 relative flex items-center justify-center bg-slate-50 rounded-xl border border-gray-100 shadow-inner p-1 transition-all duration-100">
+            
+            <div id="anni-chest" class="w-56 h-56 md:w-64 md:h-64 relative flex items-center justify-center bg-slate-50 rounded-xl border border-gray-100 shadow-inner p-1 transition-all duration-100 cursor-pointer">
+                
                 <svg viewBox="0 0 200 260" class="w-full h-full drop-shadow-md">
                     <path d="M80,50 L80,25 Q100,20 120,25 L120,50 Z" fill="#e8c39e" stroke="#d4ab84" stroke-width="1.5" />
                     <path d="M40,75 C20,85 15,110 15,140 L25,260 L175,260 L185,140 C185,110 180,85 160,75 C140,65 130,50 130,50 L70,50 C70,50 60,65 40,75 Z" fill="#f3d1b0" stroke="#d4ab84" stroke-width="2" />
@@ -112,9 +123,13 @@
                     <path d="M40,170 Q60,175 75,165" fill="none" stroke="#d4ab84" stroke-width="1" opacity="0.5" />
                     <path d="M160,170 Q140,175 125,165" fill="none" stroke="#d4ab84" stroke-width="1" opacity="0.5" />
                 </svg>
+                
                 <div id="target-pad1" data-target="pad1" class="pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-red-500 rounded-lg md:rounded-xl absolute top-10 left-6 flex items-center justify-center text-[9px] md:text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all">放置右胸</div>
                 <div id="target-pad2" data-target="pad2" class="pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-blue-500 rounded-lg md:rounded-xl absolute bottom-8 right-6 flex items-center justify-center text-[9px] md:text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all">放置左下肋</div>
+                
+                <div id="danger-overlay" class="hidden absolute inset-0 bg-red-600/10 border-4 border-red-600 rounded-xl flex items-center justify-center font-black text-red-600 tracking-wider text-xs">⚠️ 放電危險勿碰 ⚠️</div>
             </div>
+
             <div id="pad-storage-box" class="w-full mt-2 p-2 bg-slate-100 rounded-xl border border-slate-200 flex justify-around shadow-inner relative">
                 <div id="pad1" draggable="true" class="pad-item w-12 h-16 md:w-16 md:h-20 bg-white border-2 md:border-4 border-red-500 rounded-lg md:rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[10px] md:text-[11px] font-black text-red-600 transition-transform touch-none">
                     <span>⚡ 貼片</span><span class="text-[8px] md:text-[9px] font-medium">(右上)</span>
@@ -169,13 +184,9 @@
             }
         }
 
-        const STATES = { OFF: 'OFF', POWER_ON: 'POWER_ON', WAIT_PADS: 'WAIT_PADS', ANALYZING: 'ANALYZING', SHOCK_ADVISED: 'SHOCK_ADVISED', SHOCKING: 'SHOCKING', CPR: 'CPR' };
+        const STATES = { OFF: 'OFF', POWER_ON: 'POWER_ON', WAIT_PADS: 'WAIT_PADS', ANALYZING: 'ANALYZING', SHOCK_ADVISED: 'SHOCK_ADVISED', SHOCKING: 'SHOCKING', CPR: 'CPR', ACCIDENT: 'ACCIDENT' };
         let currentState = STATES.OFF;
-        let cprInterval = null; 
-        let warningVoiceInterval = null; 
-        let padsTimeoutInterval = null; 
-        let audioCtx = null; 
-        let attachedPadsCount = 0;
+        let cprInterval = null; let warningVoiceInterval = null; let padsTimeoutInterval = null; let audioCtx = null; let attachedPadsCount = 0;
 
         const ecg = new ECGChart('ecg-canvas');
         const screen = document.getElementById('status-screen');
@@ -186,6 +197,7 @@
         const trainingArea = document.getElementById('training-area');
         const bodyBg = document.getElementById('body-bg');
         const anniChest = document.getElementById('anni-chest');
+        const dangerOverlay = document.getElementById('danger-overlay');
 
         function speak(text) {
             try {
@@ -196,17 +208,16 @@
             } catch(e) { console.warn("語音播放受阻:", e); }
         }
 
-        // 優化修復：強化音訊驅動，在任何狀態變更時就地確保 AudioContext 處於作用狀態
+        // 核心爆破優化：每次嗶聲主動檢查解鎖音訊上下文，確保非互動狀態（CPR）依然有逼逼聲
         function playBeep(frequency, duration) {
             try {
                 if (!audioCtx) return;
                 if (audioCtx.state === 'suspended') { audioCtx.resume(); }
-                
                 const osc = audioCtx.createOscillator(); 
                 const gain = audioCtx.createGain();
                 osc.type = 'sine'; 
                 osc.frequency.value = frequency; 
-                gain.gain.setValueAtTime(0.15, audioCtx.currentTime); 
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime); // 提高音量
                 osc.connect(gain); 
                 gain.connect(audioCtx.destination);
                 osc.start(); 
@@ -214,11 +225,29 @@
             } catch(e) { console.warn("音訊播報受阻:", e); }
         }
 
+        // 觸電專用高頻恐怖雜音生成器
+        function playZappingNoise() {
+            try {
+                if (!audioCtx) return;
+                const bufferSize = audioCtx.sampleRate * 0.4;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() - 0.5) * 0.5; // 白雜訊
+                }
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                noise.connect(audioCtx.destination);
+                noise.start();
+            } catch(e) {}
+        }
+
         function updateHardwareLeds() {
             ledDotPads.className = "w-6 h-6 bg-slate-700 rounded-full border border-slate-600 transition-all duration-200 shadow-none";
             ledDotAnalyze.className = "w-6 h-6 bg-slate-700 rounded-full border border-slate-600 transition-all duration-200 shadow-none";
             switch (currentState) {
-                case STATES.OFF: break;
+                case STATES.OFF:
+                case STATES.ACCIDENT: break;
                 case STATES.POWER_ON:
                 case STATES.WAIT_PADS:
                     ledDotPads.classList.remove('bg-slate-700', 'border-slate-600'); ledDotPads.classList.add('led-amber-flashing', 'border-amber-300');
@@ -238,8 +267,15 @@
         }
 
         function changeState(newState) {
-            currentState = newState; clearInterval(cprInterval); clearInterval(warningVoiceInterval); clearInterval(padsTimeoutInterval);
-            btnShock.disabled = true; btnShock.classList.remove('blinking', 'bg-red-500', 'cursor-pointer'); btnShock.classList.add('bg-red-700', 'opacity-40', 'cursor-not-allowed');
+            currentState = newState; 
+            clearInterval(cprInterval); 
+            clearInterval(warningVoiceInterval); 
+            clearInterval(padsTimeoutInterval);
+            
+            btnShock.disabled = true; 
+            btnShock.classList.remove('blinking', 'bg-red-500', 'cursor-pointer'); 
+            btnShock.classList.add('bg-red-700', 'opacity-40', 'cursor-not-allowed');
+            dangerOverlay.classList.add('hidden');
             updateHardwareLeds();
 
             switch(currentState) {
@@ -247,6 +283,7 @@
                     screen.innerHTML = "機器未開機<br>請按下綠色電源鍵";
                     btnPower.className = "w-14 h-14 bg-green-600 hover:bg-green-500 active:scale-95 border-2 border-green-700 text-white font-black rounded-full shadow-md flex items-center justify-center text-xs transition-all cursor-pointer";
                     trainingArea.classList.add('opacity-30', 'pointer-events-none');
+                    bodyBg.className = "bg-gray-100 flex flex-col items-center justify-center min-h-screen p-2 md:p-4 font-sans select-none transition-colors duration-200";
                     resetPads(); ecg.stop(); window.speechSynthesis.cancel();
                     break;
                 case STATES.POWER_ON:
@@ -277,6 +314,8 @@
                     break;
                 case STATES.SHOCK_ADVISED:
                     screen.innerHTML = "建議電擊！正在充電！<br>請遠離病患！"; speak("建議電擊，正在充電。請遠離病患！");
+                    dangerOverlay.classList.remove('hidden'); // 秀出放電危險紅框
+                    
                     let chargeTimer = 0;
                     const chargeInterval = setInterval(() => {
                         if (currentState !== STATES.SHOCK_ADVISED) { clearInterval(chargeInterval); return; }
@@ -300,14 +339,44 @@
                     break;
                 case STATES.CPR:
                     screen.innerHTML = "請立即開始持續壓胸"; speak("請立即開始持續壓胸。"); ecg.setType('CPR'); 
+                    
+                    // 核心修正：將音訊驅動注入定時器，一邊繪圖一邊「絕對發出逼逼聲音」
+                    if(audioCtx) audioCtx.resume(); 
+                    
                     cprInterval = setInterval(() => {
                         screen.innerHTML = `請立即開始持續壓胸<br><span class="text-yellow-400 font-bold">嗶！ (110 BPM)</span>`;
-                        playBeep(1000, 0.12); 
+                        playBeep(1000, 0.12); // 標準且響亮的壓胸節拍聲
                         ecg.triggerCprPulse();
                     }, 545);
                     break;
+
+                case STATES.ACCIDENT: // ================= 新增：嚴重事故（有人在放電時觸碰病患） =================
+                    ecg.setType('ASYSTOLE');
+                    screen.innerHTML = "<span class='text-red-500 font-black animate-pulse'>⚠️ 嚴重事故 ⚠️<br>施救者不幸觸電！</span>";
+                    bodyBg.className = "fixed inset-0 z-[99999] flex flex-col items-center justify-center p-6 text-white text-center font-bold text-xl bg-red-600 shock-accident-active";
+                    
+                    // 噴出觸電慘白反相黑化畫面與電流雜音
+                    playZappingNoise();
+                    speak("警告！警告！有人觸碰病患！施救者不幸觸電！電擊失敗！請立即按電源鍵重置系統！");
+                    break;
             }
         }
+
+        // ================= 觸電偵測：在分析與建議電擊放電時，如果碰到安妮軀幹 =================
+        anniChest.addEventListener('click', (e) => {
+            // 防止點到裡面的貼片按鈕也觸電
+            if (e.target.classList.contains('pad-item') || e.target.closest('.pad-item')) return;
+            
+            if (currentState === STATES.ANALYZING || currentState === STATES.SHOCK_ADVISED || currentState === STATES.SHOCKING) {
+                changeState(STATES.ACCIDENT);
+            }
+        });
+        anniChest.addEventListener('touchstart', (e) => {
+            if (e.target.classList.contains('pad-item') || e.target.closest('.pad-item')) return;
+            if (currentState === STATES.ANALYZING || currentState === STATES.SHOCK_ADVISED || currentState === STATES.SHOCKING) {
+                changeState(STATES.ACCIDENT);
+            }
+        });
 
         // 跨平台拖曳
         const pads = document.querySelectorAll('.pad-item'); const targets = document.querySelectorAll('.pad-target');
@@ -350,7 +419,7 @@
 
         function resetPads() {
             attachedPadsCount = 0; const storageBox = document.getElementById('pad-storage-box'); const pad1 = document.getElementById('pad1'); const pad2 = document.getElementById('pad2');
-            const t1 = document.getElementById('target-pad1'); t1.innerHTML = '放置右胸'; t1.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-red-500 rounded-lg md:rounded-xl absolute top-10 left-6 flex items-center justify-center text-[9px] md:text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
+            const t1 = document.getElementById('target-pad1'); t1.innerHTML = '放置右胸'; t1.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-red-500 rounded-xl absolute top-10 left-6 flex items-center justify-center text-[9px] md:text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
             const t2 = document.getElementById('target-pad2'); t2.innerHTML = '放置左下肋'; t2.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-blue-500 rounded-lg md:rounded-xl absolute bottom-8 right-6 flex items-center justify-center text-[9px] md:text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
             pad1.style.width = ''; pad1.style.height = ''; pad2.style.width = ''; pad2.style.height = '';
             pad1.setAttribute('draggable', 'true'); pad1.classList.add('cursor-grab', 'touch-none');
@@ -358,7 +427,6 @@
             storageBox.appendChild(pad1); storageBox.appendChild(pad2); updateHardwareLeds();
         }
 
-        // 歡迎蓋板按鈕事件
         document.getElementById('btn-unlock-audio').addEventListener('click', async () => {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') { await audioCtx.resume(); }
@@ -368,12 +436,11 @@
         });
 
         btnPower.addEventListener('click', () => {
-            const targetState = (currentState === STATES.OFF) ? STATES.POWER_ON : STATES.OFF;
+            const targetState = (currentState === STATES.OFF || currentState === STATES.ACCIDENT) ? STATES.POWER_ON : STATES.OFF;
             changeState(targetState);
         });
         btnShock.addEventListener('click', () => currentState === STATES.SHOCK_ADVISED ? changeState(STATES.SHOCKING) : null);
 
-        // 環境與 PWA 動態註冊
         window.addEventListener('DOMContentLoaded', () => {
             const ua = navigator.userAgent || navigator.vendor || window.opera;
             const isLine = (ua.indexOf('LINE') > -1);
@@ -391,7 +458,7 @@
                 `;
                 const blob = new Blob([swCode], { type: 'application/javascript' });
                 const swUrl = URL.createObjectURL(blob);
-                navigator.serviceWorker.register(swUrl).catch(err => console.log('PWA ServiceWorker 註冊失敗:', err));
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('PWA SW error:', err));
             }
         });
     </script>
