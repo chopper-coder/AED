@@ -1264,8 +1264,14 @@
             transition: transform 0.1s ease;
         }
 
-        .plug-item span:first-child {
-            font-size: 18px;
+        .plug-icon {
+            width: 28px;
+            height: 28px;
+            display: block;
+            flex: 0 0 auto;
+        }
+
+        .plug-label {
             line-height: 1;
         }
 
@@ -1319,8 +1325,9 @@
                 font-size: 9px;
             }
 
-            .plug-item span:first-child {
-                font-size: 15px;
+            .plug-icon {
+                width: 22px;
+                height: 22px;
             }
 
             .plug-target {
@@ -1532,8 +1539,14 @@
 
             <div id="plug-area" class="plug-area">
                 <div id="plug-item" class="plug-item" draggable="true" data-target="plug-target">
-                    <span>🔌</span>
-                    <span>插頭</span>
+                    <svg class="plug-icon" viewBox="0 0 64 64" aria-hidden="true">
+                        <rect x="22" y="8" width="6" height="14" rx="2" fill="#334155"/>
+                        <rect x="36" y="8" width="6" height="14" rx="2" fill="#334155"/>
+                        <path d="M18 22 H46 V34 C46 43 39 50 32 50 C25 50 18 43 18 34 Z" fill="#1d4ed8"/>
+                        <rect x="24" y="26" width="16" height="5" rx="2.5" fill="#bfdbfe"/>
+                        <path d="M32 50 V58" stroke="#334155" stroke-width="5" stroke-linecap="round"/>
+                    </svg>
+                    <span class="plug-label">插頭</span>
                 </div>
                 <div id="plug-target" class="plug-target" data-accept="plug-item">
                     插入<br>插座
@@ -1581,7 +1594,7 @@
             </div>
 
             <div class="version-note">
-                離線版：CSS 與 CPR 2分鐘連續節拍音軌已內建，無需網路。
+                AED 操作四字口訣：開 → 貼 → 插 → 電
             </div>
         </section>
     </main>
@@ -2466,15 +2479,16 @@
 
                     setTimeout(() => {
                         if (currentState === STATES.POWER_ON) {
-                            changeState(STATES.WAIT_PLUG);
+                            changeState(STATES.WAIT_PADS);
                         }
                     }, 5200);
 
                     break;
 
                 case STATES.WAIT_PADS:
-                    screen.innerHTML = "請撕開包裝<br>【將貼片拖曳至右胸與左下肋】";
+                    screen.innerHTML = "請貼上電極貼片<br>【將貼片拖曳至右胸與左下肋】";
                     trainingArea.classList.remove('disabled-training');
+                    speakPrompt("pads");
                     break;
 
                 case STATES.WAIT_PLUG:
@@ -2732,7 +2746,7 @@
             }
 
             plugArea.classList.remove('hidden');
-            screen.innerHTML = "插入 AED 插頭<br>完成後再貼電極貼片";
+            screen.innerHTML = "請插入插頭<br>插上後進入分析心律";
             speakPrompt("plugInstruction");
         }
 
@@ -2777,7 +2791,7 @@
 
             setTimeout(() => {
                 if (currentState === STATES.WAIT_PLUG) {
-                    changeState(STATES.WAIT_PADS);
+                    changeState(STATES.ANALYZING);
                 }
             }, 900);
         }
@@ -2836,7 +2850,7 @@
                 attachedPadsCount = document.querySelectorAll('.pad-target .pad-item').length;
 
                 if (attachedPadsCount === 2) {
-                    changeState(STATES.ANALYZING);
+                    changeState(STATES.WAIT_PLUG);
                 }
             } else {
                 speakPrompt("padMisplaced");
