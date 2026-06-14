@@ -206,14 +206,16 @@
         const bodyBg = document.getElementById('body-bg');
         const anniChest = document.getElementById('anni-chest');
 
+        // ================= 語音優化控制模組 =================
         function speak(text) {
             try {
-                window.speechSynthesis.cancel();
+                window.speechSynthesis.cancel(); // 徹底斬斷上一句，防止手機語音排隊卡頓
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'zh-TW'; utterance.rate = 1.0;
+                utterance.lang = 'zh-TW'; 
+                utterance.rate = 1.0;
                 window.speechSynthesis.speak(utterance);
             } catch(e) {
-                console.warn("語音播放受阻:", e);
+                console.warn("語音未準備就緒:", e);
             }
         }
 
@@ -283,9 +285,16 @@
                     screen.innerHTML = "開機中...<br>請保持冷靜";
                     btnPower.className = "w-20 h-20 bg-red-600 hover:bg-red-500 active:scale-95 border-4 border-red-700 text-white font-black rounded-full shadow-lg flex items-center justify-center text-md transition-all cursor-pointer";
                     
-                    speak("請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。");
                     ecg.start(); ecg.setType('NORMAL'); 
-                    setTimeout(() => { if(currentState === STATES.POWER_ON) changeState(STATES.WAIT_PADS); }, 5000);
+                    
+                    // ================= 關鍵音訊優化 1：延遲 300 毫秒播放，給予手機語音引擎足夠的啟動時間 =================
+                    setTimeout(() => {
+                        if (currentState === STATES.POWER_ON) {
+                            speak("請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。");
+                        }
+                    }, 300);
+
+                    setTimeout(() => { if(currentState === STATES.POWER_ON) changeState(STATES.WAIT_PADS); }, 5200);
                     break;
 
                 case STATES.WAIT_PADS:
@@ -294,9 +303,9 @@
                     break;
 
                 case STATES.ANALYZING:
-                    screen.innerHTML = "正在分析心律...<br>請勿碰觸病患！";
+                    screen.innerHTML = "正在分析心律...<br>請勿碰觸病健！";
                     trainingArea.classList.add('pointer-events-none');
-                    speak("正在分析心律，請勿碰觸病患。");
+                    speak("正在分析心律，請勿碰觸病健。");
                     ecg.setType('NORMAL'); 
 
                     setTimeout(() => {
@@ -383,17 +392,15 @@
             let startX = 0, startY = 0;
             pad.addEventListener('touchstart', (e) => {
                 if (currentState !== STATES.WAIT_PADS || pad.getAttribute('draggable') === 'false') return;
-                // 關鍵修正 3：移除原本全網頁的 e.preventDefault()，讓滾動在貼片以外的區域正常運作
                 const touch = e.touches[0]; const rect = pad.getBoundingClientRect();
                 startX = touch.clientX - rect.left; startY = touch.clientY - rect.top;
                 pad.style.width = rect.width + 'px'; pad.style.height = rect.height + 'px';
                 pad.classList.add('touch-dragging');
                 pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
-            }, { passive: true }); // 改為 passive: true 允許流暢滑動
+            }, { passive: true });
 
             pad.addEventListener('touchmove', (e) => {
                 if (!pad.classList.contains('touch-dragging')) return;
-                // 只有在真正拖曳貼片時，才阻擋網頁滾動
                 e.preventDefault(); 
                 const touch = e.touches[0];
                 pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
@@ -418,7 +425,6 @@
                 const draggedPad = document.getElementById(padId);
                 target.innerHTML = ''; target.appendChild(draggedPad);
                 draggedPad.setAttribute('draggable', 'false'); draggedPad.classList.remove('cursor-grab');
-                // 成功黏貼後，移除 touch-none，讓該區域恢復可滑動性
                 draggedPad.classList.remove('touch-none');
                 target.classList.remove('border-dashed'); target.classList.add('border-solid', 'bg-green-100');
                 attachedPadsCount++;
@@ -433,8 +439,6 @@
             document.getElementById('target-pad1').className = 'pad-target w-16 h-20 border-4 border-dashed border-red-500 rounded-xl absolute top-14 left-7 flex items-center justify-center text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
             document.getElementById('target-pad2').innerHTML = '放置左下肋';
             document.getElementById('target-pad2').className = 'pad-target w-16 h-20 border-4 border-dashed border-blue-500 rounded-xl absolute bottom-12 right-7 flex items-center justify-center text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
-            
-            // 重置時重新加回 touch-none 確保下次拖曳流暢
             pad1.setAttribute('draggable', 'true'); pad1.classList.add('cursor-grab', 'touch-none');
             pad2.setAttribute('draggable', 'true'); pad2.classList.add('cursor-grab', 'touch-none');
             storageBox.appendChild(pad1); storageBox.appendChild(pad2);
@@ -446,12 +450,20 @@
             try {
                 if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
                 if (audioCtx.state === 'suspended') { await audioCtx.resume(); }
-                const dummy = new SpeechSynthesisUtterance(""); window.speechSynthesis.speak(dummy);
-            } catch (audioError) { console.warn("音訊自動播放受限"); }
+            } catch (audioError) { console.warn("音訊解鎖失敗"); }
             changeState(targetState);
         });
 
         btnShock.addEventListener('click', () => currentState === STATES.SHOCK_ADVISED ? changeState(STATES.SHOCKING) : null);
+
+        // ================= 關鍵音訊優化 2：網頁一加載，立刻無聲啟動語音引擎進行「背景快取預載」 =================
+        window.addEventListener('DOMContentLoaded', () => {
+            if ('speechSynthesis' in window) {
+                const preloadDummy = new SpeechSynthesisUtterance("");
+                preloadDummy.volume = 0; // 無聲
+                window.speechSynthesis.speak(preloadDummy);
+            }
+        });
     </script>
 </body>
 </html>
