@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>AED 模擬教學器</title>
+    <title>AED 模擬教學器 - 離線內建 CPR Beep 版</title>
 
     <style>
         * {
@@ -1047,7 +1047,7 @@
 
             cprBeatCount += 1;
 
-            screen.innerHTML = "請立即開始持續壓胸<br>嗶！ 110 BPM｜第 " + cprBeatCount + " 拍";
+            screen.innerHTML = "請立即開始持續壓胸";
             playCprBeep();
             ecg.triggerCprPulse();
 
@@ -1247,11 +1247,11 @@
                                 return;
                             }
 
-                            screen.innerHTML = "充電完成！<br>請按下閃爍的電擊鈕！";
+                            screen.innerHTML = "充電完成！<br>請按下閃爍的按鈕進行電擊！";
 
                             const playWarning = () => {
                                 if (currentState === STATES.SHOCK_ADVISED) {
-                                    speak("請遠離病患！不要碰觸病患！按下閃爍的電擊鈕！");
+                                    speak("不要碰觸病患。按下閃爍的按鈕進行電擊。");
                                 }
                             };
 
@@ -1288,7 +1288,7 @@
                     break;
 
                 case STATES.CPR:
-                    screen.innerHTML = "請立即開始持續壓胸<br>準備 110 BPM 節拍";
+                    screen.innerHTML = "請立即開始持續壓胸";
                     speak("請立即開始持續壓胸。");
                     ecg.setType('CPR');
 
