@@ -2196,15 +2196,26 @@
         }
 
 
-        async function primeAudioElement(audioElement) {
+        async function primeAudioElement(audioElement, options = {}) {
             try {
                 if (!audioElement) {
                     return false;
                 }
 
+                const useMuted = !!options.muted;
                 audioElement.load();
+
                 const oldVolume = audioElement.volume;
-                audioElement.volume = 0;
+                const oldMuted = audioElement.muted;
+
+                // 手機解鎖用：一般音效用 volume=0；CPR 音軌用 muted=true，避免進入畫面時聽到 CPR 嗶聲。
+                if (useMuted) {
+                    audioElement.muted = true;
+                    audioElement.volume = 1.0;
+                } else {
+                    audioElement.volume = 0;
+                }
+
                 audioElement.currentTime = 0;
 
                 const p = audioElement.play();
@@ -2215,6 +2226,7 @@
 
                 audioElement.pause();
                 audioElement.currentTime = 0;
+                audioElement.muted = oldMuted;
                 audioElement.volume = oldVolume;
 
                 return true;
@@ -2223,6 +2235,7 @@
                     if (audioElement) {
                         audioElement.pause();
                         audioElement.currentTime = 0;
+                        audioElement.muted = false;
                         audioElement.volume = 1.0;
                     }
                 } catch (_) {}
@@ -2239,8 +2252,7 @@
                 plugAudio,
                 chargeAudio,
                 cuteChargeAudio,
-                shockAudio,
-                cprLoopAudio
+                shockAudio
             ];
 
             let okCount = 0;
@@ -2252,9 +2264,16 @@
                 }
             }
 
+            // CPR 音軌另外用 muted=true 解鎖，不讓進入畫面時出現 CPR 嗶聲。
+            const cprOk = await primeAudioElement(cprLoopAudio, { muted: true });
+            if (cprOk) {
+                okCount += 1;
+            }
+
             return okCount;
         }
 
+        // CPR 連續音軌只在進入 CPR 狀態時播放；進入系統時不預跑，避免手機出現嗶嗶聲。
         function startCprLoopAudio() {
             try {
                 if (!cprLoopAudio) {
@@ -2263,12 +2282,18 @@
 
                 cprLoopAudio.pause();
                 cprLoopAudio.currentTime = 0;
+                cprLoopAudio.muted = false;
                 cprLoopAudio.volume = 1.0;
 
                 const p = cprLoopAudio.play();
 
                 if (p && typeof p.catch === 'function') {
-                    p.catch((e) => console.warn("CPR 連續節拍音軌播放受阻：", e));
+                    p.catch((e) => {
+                        console.warn("CPR 連續節拍音軌播放受阻：", e);
+                        if (currentState === STATES.CPR) {
+                            screen.innerHTML = "請立即開始持續壓胸<br>若無節拍音，請再點一下畫面";
+                        }
+                    });
                 }
 
                 return true;
@@ -3164,6 +3189,14 @@
             }, { passive: false });
         }
 
+
+
+        // AED CPR 音效補播：若手機進入 CPR 後仍封鎖音效，點一下畫面即可再次播放。
+        document.body.addEventListener('click', () => {
+            if (currentState === STATES.CPR && cprLoopAudio && cprLoopAudio.paused) {
+                startCprLoopAudio();
+            }
+        });
 
         registerServiceWorker();
         loadVoicePrompts();
