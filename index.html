@@ -2182,6 +2182,66 @@
             }
         }
 
+
+        async function primeAudioElement(audioElement) {
+            try {
+                if (!audioElement) {
+                    return false;
+                }
+
+                audioElement.load();
+                const oldVolume = audioElement.volume;
+                audioElement.volume = 0;
+                audioElement.currentTime = 0;
+
+                const p = audioElement.play();
+
+                if (p && typeof p.then === 'function') {
+                    await p;
+                }
+
+                audioElement.pause();
+                audioElement.currentTime = 0;
+                audioElement.volume = oldVolume;
+
+                return true;
+            } catch (e) {
+                try {
+                    if (audioElement) {
+                        audioElement.pause();
+                        audioElement.currentTime = 0;
+                        audioElement.volume = 1.0;
+                    }
+                } catch (_) {}
+
+                console.warn("音檔預先解鎖失敗：", e);
+                return false;
+            }
+        }
+
+        async function unlockAllAudioElements() {
+            const audioList = [
+                unlockAudio,
+                bootAudio,
+                plugAudio,
+                chargeAudio,
+                cuteChargeAudio,
+                shockAudio,
+                cprLoopAudio
+            ];
+
+            let okCount = 0;
+
+            for (const audio of audioList) {
+                const ok = await primeAudioElement(audio);
+                if (ok) {
+                    okCount += 1;
+                }
+            }
+
+            return okCount;
+        }
+
         function startCprLoopAudio() {
             try {
                 if (!cprLoopAudio) {
@@ -2222,12 +2282,28 @@
             return playAudioElement(plugAudio, true);
         }
 
-        function playChargeSound() {
-            if (chargeSoundMode === 'cute') {
-                return playAudioElement(cuteChargeAudio, true);
+        async function playChargeSound() {
+            const audio = chargeSoundMode === 'cute' ? cuteChargeAudio : chargeAudio;
+
+            if (!audio) {
+                return false;
             }
 
-            return playAudioElement(chargeAudio, true);
+            try {
+                audio.volume = 1.0;
+                audio.load();
+            } catch (e) {}
+
+            const ok = await playAudioElement(audio, true);
+
+            // 部分手機第一次播放 data-audio 會失敗，短暫延遲後再補播一次。
+            if (!ok) {
+                setTimeout(() => {
+                    playAudioElement(audio, true);
+                }, 80);
+            }
+
+            return ok;
         }
 
         function playCprBeep() {
@@ -2814,15 +2890,12 @@
 
         document.getElementById('btn-unlock-audio').addEventListener('click', async () => {
             try {
+                // 手機瀏覽器通常要求所有音效都必須在使用者點擊事件中先被解鎖。
+                const unlockedCount = await unlockAllAudioElements();
+
+                // 最後播放一個很短的啟用音，讓使用者知道聲音可用。
                 const ok = await playAudioElement(unlockAudio, true);
-
-                // 預跑 CPR 2分鐘連續節拍音軌，讓手機先解鎖這個音檔。
-                setTimeout(() => {
-                    startCprLoopAudio();
-                    setTimeout(() => stopCprLoopAudio(), 260);
-                }, 160);
-
-                audioUnlocked = ok;
+                audioUnlocked = ok || unlockedCount > 0;
 
                 if ('speechSynthesis' in window) {
                     const unlockUtterance = new SpeechSynthesisUtterance("語音已啟用");
@@ -2833,7 +2906,9 @@
                 }
 
                 if (audioStatus) {
-                    audioStatus.innerText = ok ? "聲音已啟用，可以開始操作" : "已進入系統，但手機可能封鎖音效";
+                    audioStatus.innerText = audioUnlocked
+                        ? "聲音已啟用，充電音效已預先解鎖"
+                        : "已進入系統，但手機可能封鎖音效";
                 }
             } catch (e) {
                 console.warn("音效初始化失敗，但仍允許進入系統：", e);
