@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AED 模擬教學器 - 醫療現場擬真版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>AED 模擬教學器 - 跨平台完美相容版</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         @keyframes blink {
@@ -52,7 +52,7 @@
         }
     </style>
 </head>
-<body id="body-bg" class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4 font-sans select-none touch-none transition-colors duration-200">
+<body id="body-bg" class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4 font-sans select-none transition-colors duration-200">
 
     <div class="flex flex-col lg:flex-row gap-8 items-stretch justify-center w-full max-w-6xl">
         
@@ -132,10 +132,10 @@
             </div>
 
             <div id="pad-storage-box" class="w-full mt-4 p-4 bg-slate-100 rounded-2xl border-2 border-slate-200 flex justify-around shadow-inner relative">
-                <div id="pad1" draggable="true" class="pad-item w-16 h-20 bg-white border-4 border-red-500 rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[11px] font-black text-red-600 transition-transform">
+                <div id="pad1" draggable="true" class="pad-item w-16 h-20 bg-white border-4 border-red-500 rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[11px] font-black text-red-600 transition-transform touch-none">
                     <span>⚡ 貼片</span><span class="text-[9px] font-medium">(右上胸)</span>
                 </div>
-                <div id="pad2" draggable="true" class="pad-item w-16 h-20 bg-white border-4 border-blue-500 rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[11px] font-black text-blue-600 transition-transform">
+                <div id="pad2" draggable="true" class="pad-item w-16 h-20 bg-white border-4 border-blue-500 rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[11px] font-black text-blue-600 transition-transform touch-none">
                     <span>⚡ 貼片</span><span class="text-[9px] font-medium">(左下肋)</span>
                 </div>
             </div>
@@ -383,16 +383,19 @@
             let startX = 0, startY = 0;
             pad.addEventListener('touchstart', (e) => {
                 if (currentState !== STATES.WAIT_PADS || pad.getAttribute('draggable') === 'false') return;
-                e.preventDefault(); const touch = e.touches[0]; const rect = pad.getBoundingClientRect();
+                // 關鍵修正 3：移除原本全網頁的 e.preventDefault()，讓滾動在貼片以外的區域正常運作
+                const touch = e.touches[0]; const rect = pad.getBoundingClientRect();
                 startX = touch.clientX - rect.left; startY = touch.clientY - rect.top;
                 pad.style.width = rect.width + 'px'; pad.style.height = rect.height + 'px';
                 pad.classList.add('touch-dragging');
                 pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
-            }, { passive: false });
+            }, { passive: true }); // 改為 passive: true 允許流暢滑動
 
             pad.addEventListener('touchmove', (e) => {
                 if (!pad.classList.contains('touch-dragging')) return;
-                e.preventDefault(); const touch = e.touches[0];
+                // 只有在真正拖曳貼片時，才阻擋網頁滾動
+                e.preventDefault(); 
+                const touch = e.touches[0];
                 pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
             }, { passive: false });
 
@@ -415,6 +418,8 @@
                 const draggedPad = document.getElementById(padId);
                 target.innerHTML = ''; target.appendChild(draggedPad);
                 draggedPad.setAttribute('draggable', 'false'); draggedPad.classList.remove('cursor-grab');
+                // 成功黏貼後，移除 touch-none，讓該區域恢復可滑動性
+                draggedPad.classList.remove('touch-none');
                 target.classList.remove('border-dashed'); target.classList.add('border-solid', 'bg-green-100');
                 attachedPadsCount++;
                 if (attachedPadsCount === 2) changeState(STATES.ANALYZING);
@@ -428,33 +433,21 @@
             document.getElementById('target-pad1').className = 'pad-target w-16 h-20 border-4 border-dashed border-red-500 rounded-xl absolute top-14 left-7 flex items-center justify-center text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
             document.getElementById('target-pad2').innerHTML = '放置左下肋';
             document.getElementById('target-pad2').className = 'pad-target w-16 h-20 border-4 border-dashed border-blue-500 rounded-xl absolute bottom-12 right-7 flex items-center justify-center text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
-            pad1.setAttribute('draggable', 'true'); pad1.classList.add('cursor-grab');
-            pad2.setAttribute('draggable', 'true'); pad2.classList.add('cursor-grab');
+            
+            // 重置時重新加回 touch-none 確保下次拖曳流暢
+            pad1.setAttribute('draggable', 'true'); pad1.classList.add('cursor-grab', 'touch-none');
+            pad2.setAttribute('draggable', 'true'); pad2.classList.add('cursor-grab', 'touch-none');
             storageBox.appendChild(pad1); storageBox.appendChild(pad2);
             updateHardwareLeds();
         }
 
-        // ================= 終極高穩定性開機監聽整合邏輯 =================
         btnPower.addEventListener('click', async () => {
-            // 【硬核解鎖：第一層】不論音訊是否成功，強制推動 JavaScript 狀態機，保證畫面文字、燈號絕對要亮起
             const targetState = (currentState === STATES.OFF) ? STATES.POWER_ON : STATES.OFF;
-            
-            // 【硬核解鎖：第二層】非同步處理音訊，被瀏覽器阻擋也不會卡死主執行緒
             try {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioCtx.state === 'suspended') {
-                    await audioCtx.resume();
-                }
-                // 丟一個空白語音給瀏覽器進行「聲道預熱」
-                const dummy = new SpeechSynthesisUtterance("");
-                window.speechSynthesis.speak(dummy);
-            } catch (audioError) {
-                console.warn("瀏覽器隱私政策限制了部分音訊自動播放，但機台仍將正常運作。");
-            }
-
-            // 最終執行開關機狀態變更
+                if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+                if (audioCtx.state === 'suspended') { await audioCtx.resume(); }
+                const dummy = new SpeechSynthesisUtterance(""); window.speechSynthesis.speak(dummy);
+            } catch (audioError) { console.warn("音訊自動播放受限"); }
             changeState(targetState);
         });
 
