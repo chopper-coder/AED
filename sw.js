@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aed-pwa-voice-prompt-editor-flat-v1';
+const CACHE_NAME = 'aed-pwa-voice-prompt-only-stable-v1';
 const ASSETS = [
   './',
   './index.html',

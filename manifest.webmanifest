@@ -1,7 +1,7 @@
 {
   "name": "AED 模擬教學器",
-  "short_name": "AED 模擬教學器",
-  "description": "AED 模擬教學器",
+  "short_name": "AED教學器",
+  "description": "AED 模擬教學器 PWA 語音修正穩定版",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

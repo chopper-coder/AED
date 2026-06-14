@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>AED 模擬教學器 - PWA 語音修正版</title>
+    <title>AED 模擬教學器 - 語音修正穩定版</title>
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#f59e0b">
     <meta name="mobile-web-app-capable" content="yes">
@@ -1185,20 +1185,6 @@
             text-align: center;
         }
 
-        .voice-mode-badge {
-            position: fixed;
-            top: 8px;
-            right: 8px;
-            z-index: 60;
-            background: rgba(15, 23, 42, 0.82);
-            color: #e5e7eb;
-            border: 1px solid rgba(148,163,184,0.3);
-            border-radius: 999px;
-            padding: 5px 8px;
-            font-size: 10px;
-            font-weight: 900;
-            pointer-events: none;
-        }
 
         @media (max-width: 767px) {
             .instructor-card {
@@ -1277,17 +1263,14 @@
         </button>
     </div>
 
-
-    <div id="voice-mode-badge" class="voice-mode-badge">語音：中文國語</div>
-
     <div id="instructor-panel" class="instructor-panel hidden">
         <div class="instructor-card">
-            <h2>教官控制面板</h2>
-            <p class="hint">長按標題 3 秒開啟。可修正 AED 流程語音、切換情境、直接進入分析心律。</p>
+            <h2>AED 語音修正</h2>
+            <p class="hint">長按標題 3 秒開啟。此面板只用來修正 AED 模擬器各流程的固定語音。</p>
 
             <div class="instructor-section">
                 <div class="instructor-section-title">AED 流程語音修正</div>
-                <p class="hint" style="margin-bottom:8px;">這裡修改的是 AED 模擬器各流程的固定語音，不是臨時廣播。</p>
+                <p class="hint" style="margin-bottom:8px;">修改後請按「套用並儲存」，後續 AED 流程就會使用新的語音。</p>
 
                 <label class="prompt-label" for="prompt-power">開機／貼片提示</label>
                 <textarea id="prompt-power" class="prompt-input"></textarea>
@@ -1312,45 +1295,25 @@
                     <button id="btn-reset-prompts" class="instructor-btn amber">恢復預設</button>
                     <button id="btn-test-prompt" class="instructor-btn full">測試目前選取語音</button>
                     <button id="btn-stop-voice" class="instructor-btn gray full">停止語音</button>
-                </div>
-            </div>
-
-            <div class="instructor-section">
-                <div class="instructor-section-title">情境切換</div>
-                <div class="instructor-grid">
-                    <button id="btn-force-shock" class="instructor-btn red">切換需要電擊</button>
-                    <button id="btn-force-noshock" class="instructor-btn amber">切換不需要電擊</button>
-                    <button id="btn-direct-analyze" class="instructor-btn full">直接進入分析心律</button>
-                </div>
-                <div id="scenario-status" class="status-chip">目前：需要電擊</div>
-            </div>
-
-            <div class="instructor-section">
-                <div class="instructor-section-title">多語音版本</div>
-                <select id="voice-mode-select" class="select-box">
-                    <option value="zh-TW">中文國語</option>
-                    <option value="tw">台語提示版</option>
-                    <option value="en-US">英文提示版</option>
-                    <option value="mute">靜音字幕版</option>
-                </select>
-                <div id="voice-status" class="status-chip">目前語音：中文國語</div>
-            </div>
-
-            <div class="instructor-section">
-                <div class="instructor-section-title">PWA / 螢幕控制</div>
-                <div class="instructor-grid">
-                    <button id="btn-install-pwa" class="instructor-btn green">安裝到手機桌面</button>
-                    <button id="btn-wake-lock" class="instructor-btn">防止手機休眠：開</button>
-                    <button id="btn-reset-flow" class="instructor-btn gray full">重置 AED 流程</button>
-                </div>
-                <div id="wake-status" class="status-chip">防休眠：尚未啟用</div>
-                <div id="install-status" class="status-chip">PWA：等待瀏覽器提供安裝</div>
-            </div>
-
-            <div class="instructor-section">
-                <div class="instructor-grid">
                     <button id="btn-close-instructor" class="instructor-btn gray full">關閉控制面板</button>
                 </div>
+            </div>
+
+            <!-- 隱藏保留：避免舊事件監聽找不到元素造成腳本中斷；畫面不顯示。 -->
+            <div style="display:none !important;">
+                <button id="btn-force-shock" type="button"></button>
+                <button id="btn-force-noshock" type="button"></button>
+                <button id="btn-direct-analyze" type="button"></button>
+                <button id="btn-install-pwa" type="button"></button>
+                <button id="btn-wake-lock" type="button"></button>
+                <button id="btn-reset-flow" type="button"></button>
+                <select id="voice-mode-select">
+                    <option value="zh-TW" selected>中文國語</option>
+                </select>
+                <span id="scenario-status"></span>
+                <span id="voice-status"></span>
+                <span id="wake-status"></span>
+                <span id="install-status"></span>
             </div>
         </div>
     </div>
