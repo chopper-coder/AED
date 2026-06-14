@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>AED 模擬教學器</title>
+    <title>AED 模擬教學器 - 手機 CPR 音效修正版</title>
 
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
@@ -16,11 +16,6 @@
         @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.2; }
-        }
-
-        @keyframes fast-blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.1; }
         }
 
         @keyframes shock-flash {
@@ -108,19 +103,23 @@
             </h1>
 
             <p class="text-xs text-slate-400 mb-6 leading-relaxed">
-                為了確保在行動裝置上擬真救護語音與警報音效能正常播放，請先點擊下方按鈕初始化互動環境。
+                手機瀏覽器會限制自動播放音效。請先點擊下方按鈕，系統會播放短音以啟用 CPR 嗶嗶聲與 AED 語音。
             </p>
 
             <button id="btn-unlock-audio" class="w-full py-4 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black text-base rounded-xl shadow-lg shadow-green-900/30 transition-all cursor-pointer">
-                進入模擬教學
+                進入模擬教學並啟用聲音
             </button>
+
+            <div id="audio-status" class="mt-3 text-[11px] text-slate-400">
+                尚未啟用聲音
+            </div>
 
             <div id="line-warning" class="hidden mt-6 pt-4 border-t border-slate-700 text-left">
                 <p class="text-xs text-red-400 font-bold mb-2">
-                    ⚠️ 偵測到您目前正在使用 LINE 內建視窗：
+                    ⚠️ 偵測到 LINE 內建視窗
                 </p>
                 <p class="text-[11px] text-slate-400 leading-normal">
-                    LINE 內建視窗可能會封鎖語音。請點擊右上角「•••」並選擇「在 Safari 中開啟」或「在 Chrome 中開啟」以獲得正常聲音。
+                    LINE 內建視窗可能會封鎖語音與嗶嗶聲。建議點擊右上角「•••」，選擇「在 Safari / Chrome 中開啟」。
                 </p>
             </div>
         </div>
@@ -132,12 +131,16 @@
         </div>
 
         <h2 class="text-2xl font-black tracking-wide mb-2">
-            建議不要直接在 LINE 內開啟
+            建議不要在 LINE 內開啟
         </h2>
 
-        <p class="text-sm text-slate-300 max-w-sm mb-8 leading-relaxed">
-            LINE 內建視窗可能會封鎖語音合成引擎。請點擊右上角「•••」並選擇「在 Safari / Chrome 中開啟」以獲得完整語音效果。
+        <p class="text-sm text-slate-300 max-w-sm mb-6 leading-relaxed">
+            LINE 內建視窗可能會封鎖 CPR 嗶嗶聲與 AED 語音。請改用 Safari 或 Chrome 開啟。
         </p>
+
+        <button id="btn-close-line-alert" class="px-6 py-3 bg-amber-500 text-slate-900 font-black rounded-xl active:scale-95">
+            我知道了，仍要測試
+        </button>
     </div>
 
     <div class="flex flex-col lg:flex-row gap-3 md:gap-6 items-center lg:items-stretch justify-center w-full max-w-5xl h-full max-h-screen">
@@ -281,6 +284,7 @@
 
             start() {
                 this.canvas.style.opacity = '1';
+
                 if (!this.animationId) {
                     this.animate();
                 }
@@ -396,6 +400,7 @@
         let warningVoiceInterval = null;
         let audioCtx = null;
         let attachedPadsCount = 0;
+        let audioUnlocked = false;
 
         const ecg = new ECGChart('ecg-canvas');
 
@@ -407,13 +412,15 @@
         const trainingArea = document.getElementById('training-area');
         const bodyBg = document.getElementById('body-bg');
         const anniChest = document.getElementById('anni-chest');
+        const audioStatus = document.getElementById('audio-status');
 
         async function ensureAudioContext() {
             try {
                 const AudioClass = window.AudioContext || window.webkitAudioContext;
 
                 if (!AudioClass) {
-                    return;
+                    audioUnlocked = false;
+                    return false;
                 }
 
                 if (!audioCtx) {
@@ -423,8 +430,55 @@
                 if (audioCtx.state === 'suspended') {
                     await audioCtx.resume();
                 }
+
+                audioUnlocked = audioCtx.state === 'running';
+
+                if (audioStatus) {
+                    audioStatus.innerText = audioUnlocked ? "聲音已啟用" : "聲音尚未完全啟用";
+                }
+
+                return audioUnlocked;
             } catch (e) {
                 console.warn("AudioContext 初始化失敗：", e);
+
+                audioUnlocked = false;
+
+                if (audioStatus) {
+                    audioStatus.innerText = "聲音啟用失敗，請改用 Safari / Chrome";
+                }
+
+                return false;
+            }
+        }
+
+        async function playBeep(frequency, duration) {
+            try {
+                const ok = await ensureAudioContext();
+
+                if (!ok || !audioCtx || audioCtx.state !== 'running') {
+                    console.warn("音訊尚未啟用，目前狀態：", audioCtx ? audioCtx.state : "no audioCtx");
+                    return false;
+                }
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.value = frequency;
+
+                gain.gain.setValueAtTime(0.28, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + duration);
+
+                return true;
+            } catch (e) {
+                console.warn("音訊播放受阻：", e);
+                return false;
             }
         }
 
@@ -445,30 +499,6 @@
                 window.speechSynthesis.speak(utterance);
             } catch (e) {
                 console.warn("語音播放受阻：", e);
-            }
-        }
-
-        function playBeep(frequency, duration) {
-            try {
-                if (!audioCtx || audioCtx.state === 'suspended') {
-                    return;
-                }
-
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-
-                osc.type = 'sine';
-                osc.frequency.value = frequency;
-
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
-            } catch (e) {
-                console.warn("音訊播放受阻：", e);
             }
         }
 
@@ -583,9 +613,9 @@
                     ecg.start();
                     ecg.setType('NORMAL');
 
-                    playBeep(1200, 0.08);
-                    setTimeout(() => playBeep(1200, 0.08), 150);
-                    setTimeout(() => playBeep(1500, 0.15), 300);
+                    void playBeep(1200, 0.08);
+                    setTimeout(() => void playBeep(1200, 0.08), 150);
+                    setTimeout(() => void playBeep(1500, 0.15), 300);
 
                     speak("請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。");
 
@@ -648,7 +678,7 @@
                             return;
                         }
 
-                        playBeep(800 + (chargeTimer * 80), 0.1);
+                        void playBeep(800 + (chargeTimer * 80), 0.1);
                         chargeTimer++;
 
                         if (chargeTimer > 15) {
@@ -684,7 +714,7 @@
                     bodyBg.classList.add('flash-active');
                     anniChest.classList.add('bg-white', 'scale-105', 'shadow-2xl', 'duration-75');
 
-                    playBeep(2000, 0.8);
+                    void playBeep(2000, 0.8);
                     speak("電擊已完成。");
 
                     setTimeout(() => {
@@ -700,9 +730,10 @@
 
                 case STATES.CPR:
                     screen.innerHTML = "請立即開始持續壓胸";
-
                     speak("請立即開始持續壓胸。");
                     ecg.setType('CPR');
+
+                    void playBeep(1000, 0.12);
 
                     cprInterval = setInterval(() => {
                         if (currentState !== STATES.CPR) {
@@ -712,7 +743,7 @@
                         }
 
                         screen.innerHTML = "請立即開始持續壓胸<br>嗶！ (110 BPM)";
-                        playBeep(1000, 0.1);
+                        void playBeep(1000, 0.12);
                         ecg.triggerCprPulse();
                     }, 545);
 
@@ -922,19 +953,34 @@
             try {
                 await ensureAudioContext();
 
+                const beepOk = await playBeep(880, 0.12);
+
                 if ('speechSynthesis' in window) {
                     const unlockUtterance = new SpeechSynthesisUtterance("語音已啟用");
                     unlockUtterance.lang = 'zh-TW';
-                    unlockUtterance.volume = 0.01;
+                    unlockUtterance.volume = 0.7;
                     unlockUtterance.rate = 1.0;
-
                     window.speechSynthesis.speak(unlockUtterance);
+                }
+
+                if (audioStatus) {
+                    audioStatus.innerText = beepOk ? "聲音已啟用，可以開始操作" : "已進入系統，但手機可能封鎖音效";
                 }
             } catch (e) {
                 console.warn("音訊初始化失敗，但仍允許進入系統：", e);
+
+                if (audioStatus) {
+                    audioStatus.innerText = "音效初始化失敗，仍可進入操作";
+                }
             } finally {
-                document.getElementById('welcome-gate').classList.add('hidden');
+                setTimeout(() => {
+                    document.getElementById('welcome-gate').classList.add('hidden');
+                }, 350);
             }
+        });
+
+        document.getElementById('btn-close-line-alert').addEventListener('click', () => {
+            document.getElementById('line-browser-alert').classList.add('hidden');
         });
 
         window.addEventListener('DOMContentLoaded', () => {
