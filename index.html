@@ -3,25 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AED 模擬教學器 - 醫療現場擬真版</title>
+    <title>AED 模擬教學器 - 專業宣導現場版</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.2; }
-        }
-        @keyframes fast-blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.1; }
-        }
-        /* 電擊放電強光動畫 */
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        @keyframes fast-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
         @keyframes shock-flash {
             0% { background-color: #ffffff; filter: brightness(2); }
             20% { background-color: #ef4444; }
             40% { background-color: #ffffff; }
             100% { background-color: rgb(243, 244, 246); }
         }
-        /* 深度客製高擬真指示燈閃爍動畫 */
         @keyframes led-flash-amber {
             0%, 100% { background-color: #f59e0b; box-shadow: 0 0 25px #f59e0b, inset 0 0 10px rgba(255,255,255,0.6); }
             50% { background-color: #334155; box-shadow: 0 0 0px transparent; }
@@ -30,86 +22,84 @@
             0%, 100% { background-color: #22c55e; box-shadow: 0 0 25px #22c55e, inset 0 0 10px rgba(255,255,255,0.6); }
             50% { background-color: #334155; box-shadow: 0 0 0px transparent; }
         }
-        
         .led-amber-flashing { animation: led-flash-amber 0.4s infinite; }
         .led-green-flashing { animation: led-flash-green 0.8s infinite; }
-        
         .flash-active { animation: shock-flash 0.6s ease-out; }
         .dragging { opacity: 0.5; }
-        
-        /* 螢幕內縮背光效果 */
-        #screen-container {
-            box-shadow: inset 0 0 20px rgba(74, 222, 128, 0.2);
-        }
-
-        /* 觸控拖曳樣式 */
+        #screen-container { box-shadow: inset 0 0 20px rgba(74, 222, 128, 0.2); }
         .touch-dragging {
-            position: fixed !important;
-            z-index: 9999 !important;
-            pointer-events: none !important;
-            transform: scale(1.1);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            position: fixed !important; z-index: 9999 !important; pointer-events: none !important; transform: scale(1.15); box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
     </style>
 </head>
-<body id="body-bg" class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4 font-sans select-none touch-none transition-colors duration-200">
+<body id="body-bg" class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-2 md:p-4 font-sans select-none transition-colors duration-200">
 
-    <div class="flex flex-col lg:flex-row gap-8 items-stretch justify-center w-full max-w-6xl">
-        
-        <div class="w-full max-w-md bg-amber-500 border-8 border-amber-600 rounded-3xl p-6 shadow-2xl relative flex flex-col justify-between">
+    <div id="welcome-gate" class="fixed inset-0 bg-slate-900 z-[10000] flex flex-col items-center justify-center p-6 text-white text-center">
+        <div class="max-w-sm w-full bg-slate-800 border border-slate-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center">
+            <div class="w-20 h-20 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-4xl mb-4 font-black">⚡</div>
+            <h1 class="text-2xl font-black mb-2 tracking-wide text-amber-400">AED 數位模擬教學系統</h1>
+            <p class="text-xs text-slate-400 mb-6 leading-relaxed">為了確保在行動裝置（iOS/Android）上擬真救護語音與警報音效能即時流暢播放，請點擊下方按鈕初始化互動環境。</p>
+            
+            <button id="btn-unlock-audio" class="w-full py-4 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black text-base rounded-xl shadow-lg shadow-green-900/30 transition-all cursor-pointer">
+                進入模擬教學 (解鎖語音)
+            </button>
+            
+            <div id="line-warning" class="hidden mt-6 pt-4 border-t border-slate-700 text-left">
+                <p class="text-xs text-red-400 font-bold mb-2">⚠️ 偵測到您目前正在使用 LINE 內建視窗：</p>
+                <p class="text-[11px] text-slate-400 leading-normal">LINE 會強制封鎖語音。請點擊右上角「•••」並選擇「在 Safari 中開啟」或「在 Chrome 中開啟」以獲得正常聲音。</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="line-browser-alert" class="hidden fixed inset-0 bg-slate-900/95 z-[10005] flex flex-col items-center justify-center p-6 text-white text-center">
+        <div class="bg-amber-500 text-slate-900 w-16 h-16 rounded-full flex items-center justify-center text-3xl font-black mb-4 animate-bounce">⚠️</div>
+        <h2 class="text-2xl font-black tracking-wide mb-2">請勿直接在 LINE 內點開</h2>
+        <p class="text-sm text-slate-300 max-w-sm mb-8 leading-relaxed">LINE 內建視窗封鎖了語音合成引擎。請點擊右上角「•••」並選擇「在 Safari / Chrome 中開啟」以解鎖完整語音。</p>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-3 md:gap-6 items-center lg:items-stretch justify-center w-full max-w-5xl h-full max-h-screen">
+        <div class="w-full max-w-sm lg:max-w-md bg-amber-500 border-4 md:border-8 border-amber-600 rounded-2xl md:rounded-3xl p-3 md:p-5 shadow-2xl flex flex-col justify-between">
             <div>
-                <div class="text-center text-white font-black text-3xl tracking-wider mb-4 drop-shadow">
-                    ▲ AED 模擬教學器
-                </div>
-
-                <div id="screen-container" class="bg-slate-950 rounded-xl border-4 border-slate-700 overflow-hidden mb-4 shadow-inner">
-                    <canvas id="ecg-canvas" class="w-full h-24 border-b border-slate-700 opacity-0 transition-opacity duration-500" width="400" height="100"></canvas>
-                    
-                    <div class="bg-slate-900 text-green-400 font-mono p-4 min-h-[80px] flex items-center justify-center text-center text-xl">
+                <div class="text-center text-white font-black text-xl md:text-2xl tracking-wider mb-2 drop-shadow">▲ AED 模擬教學器</div>
+                <div id="screen-container" class="bg-slate-950 rounded-lg border-2 md:border-4 border-slate-700 overflow-hidden mb-2 shadow-inner">
+                    <canvas id="ecg-canvas" class="w-full h-16 md:h-20 border-b border-slate-700 opacity-0 transition-opacity duration-500" width="400" height="80"></canvas>
+                    <div class="bg-slate-900 text-green-400 font-mono p-2 md:p-3 min-h-[50px] md:min-h-[64px] flex items-center justify-center text-center text-sm md:text-base">
                         <div id="status-screen">機器未開機<br>請按下綠色電源鍵</div>
                     </div>
                 </div>
-
-                <div class="bg-slate-900 border-2 border-slate-800 p-4 rounded-xl grid grid-cols-2 gap-4 mb-6 shadow-inner">
-                    <div class="flex flex-col items-center gap-2">
-                        <div id="led-dot-pads" class="w-10 h-10 bg-slate-700 rounded-full border-2 border-slate-600 transition-all duration-200"></div>
-                        <div class="text-slate-300 font-black text-xs tracking-wider">貼緊貼片</div>
+                <div class="bg-slate-900 border border-slate-800 p-2 rounded-lg grid grid-cols-2 gap-2 mb-2 shadow-inner">
+                    <div class="flex items-center justify-center gap-2">
+                        <div id="led-dot-pads" class="w-6 h-6 bg-slate-700 rounded-full border border-slate-600 transition-all duration-200"></div>
+                        <div class="text-slate-300 font-bold text-[10px] md:text-xs">貼緊貼片</div>
                     </div>
-                    <div class="flex flex-col items-center gap-2">
-                        <div id="led-dot-analyze" class="w-10 h-10 bg-slate-700 rounded-full border-2 border-slate-600 transition-all duration-200"></div>
-                        <div class="text-slate-300 font-black text-xs tracking-wider">分析心律</div>
+                    <div class="flex items-center justify-center gap-2">
+                        <div id="led-dot-analyze" class="w-6 h-6 bg-slate-700 rounded-full border border-slate-600 transition-all duration-200"></div>
+                        <div class="text-slate-300 font-bold text-[10px] md:text-xs">分析心律</div>
                     </div>
                 </div>
             </div>
-
-            <div class="flex flex-col gap-6 items-center my-4">
-                <button id="btn-power" class="w-20 h-20 bg-green-600 hover:bg-green-500 active:scale-95 border-4 border-green-700 text-white font-black rounded-full shadow-lg flex items-center justify-center text-md transition-all cursor-pointer">
-                    ON/OFF
-                </button>
-                <div class="text-white font-bold text-xs -mt-4">1. 開機</div>
-
-                <button id="btn-shock" class="w-24 h-24 bg-red-700 text-red-100 font-black rounded-full shadow-2xl flex items-center justify-center text-xl transition-all border-4 border-red-900 opacity-40 cursor-not-allowed" disabled>
-                    ⚡<br>電擊
-                </button>
-                <div class="text-white font-bold text-xs -mt-4">2. 電擊鈕</div>
+            <div class="flex flex-row lg:flex-col justify-around lg:justify-center items-center gap-2 my-1 md:my-3">
+                <div class="flex flex-col items-center gap-1">
+                    <button id="btn-power" class="w-14 h-14 md:w-16 md:h-16 bg-green-600 hover:bg-green-500 active:scale-95 border-2 md:border-4 border-green-700 text-white font-black rounded-full shadow-md flex items-center justify-center text-xs transition-all cursor-pointer">ON/OFF</button>
+                    <div class="text-white font-bold text-[10px]">1. 開機</div>
+                </div>
+                <div class="flex flex-col items-center gap-1">
+                    <button id="btn-shock" class="w-16 h-16 md:w-20 md:h-20 bg-red-700 text-red-100 font-black rounded-full shadow-xl flex items-center justify-center text-sm transition-all border-2 md:border-4 border-red-900 opacity-40 cursor-not-allowed" disabled>⚡<br>電擊</button>
+                    <div class="text-white font-bold text-[10px]">2. 電擊鈕</div>
+                </div>
             </div>
-
-            <div class="mt-4 pt-4 border-t border-amber-400 text-xs text-amber-900 flex justify-between">
+            <div class="pt-2 border-t border-amber-400 text-[10px] text-amber-900 flex justify-between">
                 <span>情境設定：</span>
-                <label class="cursor-pointer"><input type="radio" name="scenario" value="shock" checked> 需要電擊(VF)</label>
-                <label class="cursor-pointer"><input type="radio" name="scenario" value="noshock"> 不需要(Asystole)</label>
+                <label class="cursor-pointer"><input type="radio" name="scenario" value="shock" checked> 需要電擊</label>
+                <label class="cursor-pointer"><input type="radio" name="scenario" value="noshock"> 不需要</label>
             </div>
         </div>
 
-        <div id="training-area" class="w-full max-w-md bg-white p-6 rounded-3xl shadow-xl border-4 border-gray-200 flex flex-col justify-between items-center opacity-30 pointer-events-none transition-opacity duration-500">
-            
-            <div class="w-full text-center border-b border-gray-100 pb-3 mb-4">
-                <h3 class="text-gray-800 font-extrabold text-lg">操作面板：貼片正確黏貼演練</h3>
-                <p class="text-xs text-gray-500 mt-1">請將貼片確實黏貼在對應的警示虛線框內</p>
+        <div id="training-area" class="w-full max-w-sm lg:max-w-md bg-white p-3 md:p-5 rounded-2xl md:rounded-3xl shadow-xl border-2 md:border-4 border-gray-200 flex flex-col justify-between items-center opacity-30 pointer-events-none transition-opacity duration-500">
+            <div class="w-full text-center border-b border-gray-100 pb-1 mb-2">
+                <h3 class="text-gray-800 font-extrabold text-sm md:text-base">操作面板：貼片正確黏貼演練</h3>
             </div>
-            
-            <div id="anni-chest" class="w-64 h-80 relative flex items-center justify-center bg-slate-50 rounded-2xl border border-gray-100 shadow-inner p-2 transition-all duration-100">
-                
+            <div id="anni-chest" class="w-56 h-56 md:w-64 md:h-64 relative flex items-center justify-center bg-slate-50 rounded-xl border border-gray-100 shadow-inner p-1 transition-all duration-100">
                 <svg viewBox="0 0 200 260" class="w-full h-full drop-shadow-md">
                     <path d="M80,50 L80,25 Q100,20 120,25 L120,50 Z" fill="#e8c39e" stroke="#d4ab84" stroke-width="1.5" />
                     <path d="M40,75 C20,85 15,110 15,140 L25,260 L175,260 L185,140 C185,110 180,85 160,75 C140,65 130,50 130,50 L70,50 C70,50 60,65 40,75 Z" fill="#f3d1b0" stroke="#d4ab84" stroke-width="2" />
@@ -121,30 +111,21 @@
                     <path d="M40,170 Q60,175 75,165" fill="none" stroke="#d4ab84" stroke-width="1" opacity="0.5" />
                     <path d="M160,170 Q140,175 125,165" fill="none" stroke="#d4ab84" stroke-width="1" opacity="0.5" />
                 </svg>
-                
-                <div id="target-pad1" data-target="pad1" class="pad-target w-16 h-20 border-4 border-dashed border-red-500 rounded-xl absolute top-14 left-7 flex items-center justify-center text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all">
-                    放置右胸
-                </div>
-
-                <div id="target-pad2" data-target="pad2" class="pad-target w-16 h-20 border-4 border-dashed border-blue-500 rounded-xl absolute bottom-12 right-7 flex items-center justify-center text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all">
-                    放置左下肋
-                </div>
+                <div id="target-pad1" data-target="pad1" class="pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-red-500 rounded-lg md:rounded-xl absolute top-10 left-6 flex items-center justify-center text-[9px] md:text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all">放置右胸</div>
+                <div id="target-pad2" data-target="pad2" class="pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-blue-500 rounded-lg md:rounded-xl absolute bottom-8 right-6 flex items-center justify-center text-[9px] md:text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all">放置左下肋</div>
             </div>
-
-            <div id="pad-storage-box" class="w-full mt-4 p-4 bg-slate-100 rounded-2xl border-2 border-slate-200 flex justify-around shadow-inner relative">
-                <div id="pad1" draggable="true" class="pad-item w-16 h-20 bg-white border-4 border-red-500 rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[11px] font-black text-red-600 transition-transform">
-                    <span>⚡ 貼片</span><span class="text-[9px] font-medium">(右上胸)</span>
+            <div id="pad-storage-box" class="w-full mt-2 p-2 bg-slate-100 rounded-xl border border-slate-200 flex justify-around shadow-inner relative">
+                <div id="pad1" draggable="true" class="pad-item w-12 h-16 md:w-16 md:h-20 bg-white border-2 md:border-4 border-red-500 rounded-lg md:rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[10px] md:text-[11px] font-black text-red-600 transition-transform touch-none">
+                    <span>⚡ 貼片</span><span class="text-[8px] md:text-[9px] font-medium">(右上)</span>
                 </div>
-                <div id="pad2" draggable="true" class="pad-item w-16 h-20 bg-white border-4 border-blue-500 rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[11px] font-black text-blue-600 transition-transform">
-                    <span>⚡ 貼片</span><span class="text-[9px] font-medium">(左下肋)</span>
+                <div id="pad2" draggable="true" class="pad-item w-12 h-16 md:w-16 md:h-20 bg-white border-2 md:border-4 border-blue-500 rounded-lg md:rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[10px] md:text-[11px] font-black text-blue-600 transition-transform touch-none">
+                    <span>⚡ 貼片</span><span class="text-[8px] md:text-[9px] font-medium">(左下)</span>
                 </div>
             </div>
         </div>
-
     </div>
 
     <script>
-        // --- 心律圖 (ECG) 繪製類別 ---
         class ECGChart {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId); this.ctx = this.canvas.getContext('2d');
@@ -170,10 +151,10 @@
             generatePoint() {
                 let y = this.height / 2; 
                 switch (this.type) {
-                    case 'VF': y += (Math.random() - 0.5) * 60; break;
+                    case 'VF': y += (Math.random() - 0.5) * (this.height * 0.6); break;
                     case 'ASYSTOLE': y += (Math.random() - 0.5) * 4; break;
-                    case 'CPR': if (this.cprTriggered) { y -= 40; this.cprTriggered = false; } else { y += (Math.random() - 0.5) * 8; } break;
-                    case 'NORMAL': default: y += (Math.random() - 0.5) * 20; break;
+                    case 'CPR': if (this.cprTriggered) { y -= (this.height * 0.4); this.cprTriggered = false; } else { y += (Math.random() - 0.5) * 6; } break;
+                    case 'NORMAL': default: y += (Math.random() - 0.5) * (this.height * 0.2); break;
                 }
                 this.points.push({ x: this.x, y: y }); this.x += this.speed;
                 if (this.x > this.width) { this.x = 0; this.points = []; }
@@ -187,16 +168,11 @@
             }
         }
 
-        // --- AED 主邏輯 ---
         const STATES = { OFF: 'OFF', POWER_ON: 'POWER_ON', WAIT_PADS: 'WAIT_PADS', ANALYZING: 'ANALYZING', SHOCK_ADVISED: 'SHOCK_ADVISED', SHOCKING: 'SHOCKING', CPR: 'CPR' };
         let currentState = STATES.OFF;
-        let cprInterval = null;
-        let warningVoiceInterval = null; 
-        let audioCtx = null;
-        let attachedPadsCount = 0;
+        let cprInterval = null; let warningVoiceInterval = null; let audioCtx = null; let attachedPadsCount = 0;
 
         const ecg = new ECGChart('ecg-canvas');
-
         const screen = document.getElementById('status-screen');
         const btnPower = document.getElementById('btn-power');
         const btnShock = document.getElementById('btn-shock');
@@ -212,9 +188,7 @@
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'zh-TW'; utterance.rate = 1.0;
                 window.speechSynthesis.speak(utterance);
-            } catch(e) {
-                console.warn("語音播放受阻:", e);
-            }
+            } catch(e) { console.warn("語音播放受阻:", e); }
         }
 
         function playBeep(frequency, duration) {
@@ -224,81 +198,63 @@
                 osc.type = 'sine'; osc.frequency.value = frequency; gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.start(); osc.stop(audioCtx.currentTime + duration);
-            } catch(e) {
-                console.warn("音訊播放受阻:", e);
-            }
+            } catch(e) { console.warn("音訊播放受阻:", e); }
         }
 
         function updateHardwareLeds() {
-            ledDotPads.className = "w-10 h-10 bg-slate-700 rounded-full border-2 border-slate-600 transition-all duration-200 shadow-none";
-            ledDotAnalyze.className = "w-10 h-10 bg-slate-700 rounded-full border-2 border-slate-600 transition-all duration-200 shadow-none";
-
+            ledDotPads.className = "w-6 h-6 bg-slate-700 rounded-full border border-slate-600 transition-all duration-200 shadow-none";
+            ledDotAnalyze.className = "w-6 h-6 bg-slate-700 rounded-full border border-slate-600 transition-all duration-200 shadow-none";
             switch (currentState) {
                 case STATES.OFF: break;
                 case STATES.POWER_ON:
                 case STATES.WAIT_PADS:
-                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600');
-                    ledDotPads.classList.add('led-amber-flashing', 'border-amber-300');
+                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600'); ledDotPads.classList.add('led-amber-flashing', 'border-amber-300');
                     break;
                 case STATES.ANALYZING:
-                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600');
-                    ledDotPads.classList.add('bg-green-500', 'border-green-300');
-                    ledDotPads.style.boxShadow = "0 0 20px #22c55e, inset 0 0 8px rgba(255,255,255,0.6)";
-                    ledDotAnalyze.classList.remove('bg-slate-700', 'border-slate-600');
-                    ledDotAnalyze.classList.add('led-green-flashing', 'border-green-300');
+                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600'); ledDotPads.classList.add('bg-green-500', 'border-green-300');
+                    ledDotPads.style.boxShadow = "0 0 15px #22c55e, inset 0 0 5px rgba(255,255,255,0.6)";
+                    ledDotAnalyze.classList.remove('bg-slate-700', 'border-slate-600'); ledDotAnalyze.classList.add('led-green-flashing', 'border-green-300');
                     break;
                 case STATES.SHOCK_ADVISED:
                 case STATES.SHOCKING:
                 case STATES.CPR:
-                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600');
-                    ledDotPads.classList.add('bg-green-500', 'border-green-300');
-                    ledDotPads.style.boxShadow = "0 0 15px #22c55e";
-                    ledDotAnalyze.classList.remove('bg-slate-700', 'border-slate-600');
-                    ledDotAnalyze.classList.add('bg-green-500', 'border-green-300');
-                    ledDotAnalyze.style.boxShadow = "0 0 15px #22c55e";
+                    ledDotPads.classList.remove('bg-slate-700', 'border-slate-600'); ledDotPads.classList.add('bg-green-500', 'border-green-300'); ledDotPads.style.boxShadow = "0 0 10px #22c55e";
+                    ledDotAnalyze.classList.remove('bg-slate-700', 'border-slate-600'); ledDotAnalyze.classList.add('bg-green-500', 'border-green-300'); ledDotAnalyze.style.boxShadow = "0 0 10px #22c55e";
                     break;
             }
         }
 
         function changeState(newState) {
-            currentState = newState;
-            clearInterval(cprInterval);
-            clearInterval(warningVoiceInterval); 
-            
-            btnShock.disabled = true;
-            btnShock.classList.remove('blinking', 'bg-red-500', 'cursor-pointer');
-            btnShock.classList.add('bg-red-700', 'opacity-40', 'cursor-not-allowed');
-
+            currentState = newState; clearInterval(cprInterval); clearInterval(warningVoiceInterval); 
+            btnShock.disabled = true; btnShock.classList.remove('blinking', 'bg-red-500', 'cursor-pointer'); btnShock.classList.add('bg-red-700', 'opacity-40', 'cursor-not-allowed');
             updateHardwareLeds();
 
             switch(currentState) {
                 case STATES.OFF:
                     screen.innerHTML = "機器未開機<br>請按下綠色電源鍵";
-                    btnPower.className = "w-20 h-20 bg-green-600 hover:bg-green-500 active:scale-95 border-4 border-green-700 text-white font-black rounded-full shadow-lg flex items-center justify-center text-md transition-all cursor-pointer";
+                    btnPower.className = "w-14 h-14 bg-green-600 hover:bg-green-500 active:scale-95 border-2 border-green-700 text-white font-black rounded-full shadow-md flex items-center justify-center text-xs transition-all cursor-pointer";
                     trainingArea.classList.add('opacity-30', 'pointer-events-none');
                     resetPads(); ecg.stop(); window.speechSynthesis.cancel();
                     break;
-
                 case STATES.POWER_ON:
                     screen.innerHTML = "開機中...<br>請保持冷靜";
-                    btnPower.className = "w-20 h-20 bg-red-600 hover:bg-red-500 active:scale-95 border-4 border-red-700 text-white font-black rounded-full shadow-lg flex items-center justify-center text-md transition-all cursor-pointer";
-                    
-                    speak("請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。");
+                    btnPower.className = "w-14 h-14 bg-red-600 hover:bg-red-500 active:scale-95 border-2 border-red-700 text-white font-black rounded-full shadow-md flex items-center justify-center text-xs transition-all cursor-pointer";
                     ecg.start(); ecg.setType('NORMAL'); 
-                    setTimeout(() => { if(currentState === STATES.POWER_ON) changeState(STATES.WAIT_PADS); }, 5000);
-                    break;
+                    
+                    // 執行瞬發開機嗶聲
+                    playBeep(1200, 0.08); setTimeout(() => playBeep(1200, 0.08), 150); setTimeout(() => playBeep(1500, 0.15), 300);
+                    
+                    // 由於環境已經由歡迎按鈕徹底解鎖，此處語音必定秒出
+                    speak("請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。");
 
+                    setTimeout(() => { if(currentState === STATES.POWER_ON) changeState(STATES.WAIT_PADS); }, 5200);
+                    break;
                 case STATES.WAIT_PADS:
-                    screen.innerHTML = "請撕開包裝<br>【將貼片拖曳至右胸與左下肋】";
-                    trainingArea.classList.remove('opacity-30', 'pointer-events-none');
+                    screen.innerHTML = "請撕開包裝<br>【將貼片拖曳至右胸與左下肋】"; trainingArea.classList.remove('opacity-30', 'pointer-events-none');
                     break;
-
                 case STATES.ANALYZING:
-                    screen.innerHTML = "正在分析心律...<br>請勿碰觸病患！";
-                    trainingArea.classList.add('pointer-events-none');
-                    speak("正在分析心律，請勿碰觸病患。");
-                    ecg.setType('NORMAL'); 
-
+                    screen.innerHTML = "正在分析心律...<br>請勿碰觸病患！"; trainingArea.classList.add('pointer-events-none');
+                    speak("正在分析心律，請勿碰觸病患。"); ecg.setType('NORMAL'); 
                     setTimeout(() => {
                         if (currentState !== STATES.ANALYZING) return;
                         const scenario = document.querySelector('input[name="scenario"]:checked').value;
@@ -306,159 +262,118 @@
                         else { ecg.setType('ASYSTOLE'); speak("不需要電擊。"); setTimeout(() => changeState(STATES.CPR), 2000); }
                     }, 5000);
                     break;
-
                 case STATES.SHOCK_ADVISED:
-                    screen.innerHTML = "建議電擊！正在充電！<br>請遠離病患！";
-                    speak("建議電擊，正在充電。請遠離病患！");
-                    
+                    screen.innerHTML = "建議電擊！正在充電！<br>請遠離病患！"; speak("建議電擊，正在充電。請遠離病患！");
                     let chargeTimer = 0;
                     const chargeInterval = setInterval(() => {
                         if (currentState !== STATES.SHOCK_ADVISED) { clearInterval(chargeInterval); return; }
                         playBeep(800 + (chargeTimer * 80), 0.1); chargeTimer++;
-                        
                         if(chargeTimer > 15) {
-                            clearInterval(chargeInterval);
-                            screen.innerHTML = "充電完成！<br>請按下閃爍的電擊鈕！";
-                            
-                            const playWarning = () => {
-                                speak("請遠離病患！不要碰觸病患！按下閃爍的電擊鈕！");
-                            };
-                            playWarning();
-                            warningVoiceInterval = setInterval(playWarning, 5500); 
-
-                            btnShock.disabled = false; 
-                            btnShock.classList.remove('bg-red-700', 'opacity-40', 'cursor-not-allowed');
-                            btnShock.classList.add('bg-red-500', 'blinking', 'cursor-pointer');
+                            clearInterval(chargeInterval); screen.innerHTML = "充電完成！<br>請按下閃爍的電擊鈕！";
+                            const playWarning = () => { speak("請遠離病患！不要碰觸病患！按下閃爍的電擊鈕！"); };
+                            playWarning(); warningVoiceInterval = setInterval(playWarning, 5500); 
+                            btnShock.disabled = false; btnShock.classList.remove('bg-red-700', 'opacity-40', 'cursor-not-allowed'); btnShock.classList.add('bg-red-500', 'blinking', 'cursor-pointer');
                         }
                     }, 200);
                     break;
-
                 case STATES.SHOCKING:
-                    clearInterval(warningVoiceInterval); 
-                    screen.innerHTML = "⚡ 電擊放電中 ⚡"; 
-                    
-                    bodyBg.classList.add('flash-active');
-                    anniChest.classList.add('bg-white', 'scale-105', 'shadow-2xl', 'duration-75');
-                    
-                    playBeep(2000, 0.8); 
-                    speak("電擊已完成。");
-                    
+                    clearInterval(warningVoiceInterval); screen.innerHTML = "⚡ 電擊放電中 ⚡"; 
+                    bodyBg.classList.add('flash-active'); anniChest.classList.add('bg-white', 'scale-105', 'shadow-2xl', 'duration-75');
+                    playBeep(2000, 0.8); speak("電擊已完成。");
                     setTimeout(() => { 
-                        bodyBg.classList.remove('flash-active');
-                        anniChest.classList.remove('bg-white', 'scale-105', 'shadow-2xl', 'duration-75');
+                        bodyBg.classList.remove('flash-active'); anniChest.classList.remove('bg-white', 'scale-105', 'shadow-2xl', 'duration-75');
                         if(currentState === STATES.SHOCKING) changeState(STATES.CPR); 
                     }, 1500);
                     break;
-
                 case STATES.CPR:
                     screen.innerHTML = "請立即開始持續壓胸"; speak("請立即開始持續壓胸。"); ecg.setType('CPR'); 
-                    cprInterval = setInterval(() => {
-                        screen.innerHTML = `請立即開始持續壓胸<br>嗶！ (110 BPM)`; playBeep(1000, 0.1); ecg.triggerCprPulse();
-                    }, 545);
+                    cprInterval = setInterval(() => { screen.innerHTML = `請立即開始持續壓胸<br>嗶！ (110 BPM)`; playBeep(1000, 0.1); ecg.triggerCprPulse(); }, 545);
                     break;
             }
         }
 
-        // ================= 跨平台拖曳邏輯 =================
-        const pads = document.querySelectorAll('.pad-item');
-        const targets = document.querySelectorAll('.pad-target');
-
+        // 跨平台拖曳
+        const pads = document.querySelectorAll('.pad-item'); const targets = document.querySelectorAll('.pad-target');
         pads.forEach(pad => {
-            pad.addEventListener('dragstart', (e) => {
-                if (currentState !== STATES.WAIT_PADS) return;
-                e.dataTransfer.setData('text/plain', pad.id); pad.classList.add('dragging');
-            });
+            pad.addEventListener('dragstart', (e) => { if (currentState !== STATES.WAIT_PADS) return; e.dataTransfer.setData('text/plain', pad.id); pad.classList.add('dragging'); });
             pad.addEventListener('dragend', () => pad.classList.remove('dragging'));
         });
-        
         targets.forEach(target => {
             target.addEventListener('dragover', (e) => e.preventDefault());
-            target.addEventListener('drop', (e) => {
-                e.preventDefault(); const padId = e.dataTransfer.getData('text/plain');
-                handlePadPlacement(padId, target);
-            });
+            target.addEventListener('drop', (e) => { e.preventDefault(); const padId = e.dataTransfer.getData('text/plain'); handlePadPlacement(padId, target); });
         });
-
         pads.forEach(pad => {
             let startX = 0, startY = 0;
             pad.addEventListener('touchstart', (e) => {
                 if (currentState !== STATES.WAIT_PADS || pad.getAttribute('draggable') === 'false') return;
-                e.preventDefault(); const touch = e.touches[0]; const rect = pad.getBoundingClientRect();
+                const touch = e.touches[0]; const rect = pad.getBoundingClientRect();
                 startX = touch.clientX - rect.left; startY = touch.clientY - rect.top;
                 pad.style.width = rect.width + 'px'; pad.style.height = rect.height + 'px';
-                pad.classList.add('touch-dragging');
-                pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
-            }, { passive: false });
-
-            pad.addEventListener('touchmove', (e) => {
-                if (!pad.classList.contains('touch-dragging')) return;
-                e.preventDefault(); const touch = e.touches[0];
-                pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
-            }, { passive: false });
-
+                pad.classList.add('touch-dragging'); pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
+            }, { passive: true });
+            pad.addEventListener('touchmove', (e) => { if (!pad.classList.contains('touch-dragging')) return; e.preventDefault(); const touch = e.touches[0]; pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px'; }, { passive: false });
             pad.addEventListener('touchend', (e) => {
-                if (!pad.classList.contains('touch-dragging')) return;
-                pad.classList.remove('touch-dragging');
+                if (!pad.classList.contains('touch-dragging')) return; pad.classList.remove('touch-dragging');
                 pad.style.width = ''; pad.style.height = ''; pad.style.left = ''; pad.style.top = '';
                 const touch = e.changedTouches[0]; let matchedTarget = null;
-                targets.forEach(target => {
-                    const tRect = target.getBoundingClientRect();
-                    if (touch.clientX >= tRect.left && touch.clientX <= tRect.right &&
-                        touch.clientY >= tRect.top && touch.clientY <= tRect.bottom) { matchedTarget = target; }
-                });
+                targets.forEach(target => { const tRect = target.getBoundingClientRect(); if (touch.clientX >= tRect.left && touch.clientX <= tRect.right && touch.clientY >= tRect.top && touch.clientY <= tRect.bottom) { matchedTarget = target; } });
                 if (matchedTarget) { handlePadPlacement(pad.id, matchedTarget); } else { speak("請精確貼在指示位置。"); }
             });
         });
 
         function handlePadPlacement(padId, target) {
             if (padId === target.getAttribute('data-target')) {
-                const draggedPad = document.getElementById(padId);
-                target.innerHTML = ''; target.appendChild(draggedPad);
-                draggedPad.setAttribute('draggable', 'false'); draggedPad.classList.remove('cursor-grab');
+                const draggedPad = document.getElementById(padId); target.innerHTML = ''; target.appendChild(draggedPad);
+                draggedPad.setAttribute('draggable', 'false'); draggedPad.classList.remove('cursor-grab', 'touch-none');
+                draggedPad.style.width = '100%'; draggedPad.style.height = '100%';
                 target.classList.remove('border-dashed'); target.classList.add('border-solid', 'bg-green-100');
-                attachedPadsCount++;
-                if (attachedPadsCount === 2) changeState(STATES.ANALYZING);
+                attachedPadsCount++; if (attachedPadsCount === 2) changeState(STATES.ANALYZING);
             } else { speak("貼片位置不正確。"); }
         }
 
         function resetPads() {
-            attachedPadsCount = 0; const storageBox = document.getElementById('pad-storage-box');
-            const pad1 = document.getElementById('pad1'); const pad2 = document.getElementById('pad2');
-            document.getElementById('target-pad1').innerHTML = '放置右胸';
-            document.getElementById('target-pad1').className = 'pad-target w-16 h-20 border-4 border-dashed border-red-500 rounded-xl absolute top-14 left-7 flex items-center justify-center text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
-            document.getElementById('target-pad2').innerHTML = '放置左下肋';
-            document.getElementById('target-pad2').className = 'pad-target w-16 h-20 border-4 border-dashed border-blue-500 rounded-xl absolute bottom-12 right-7 flex items-center justify-center text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
-            pad1.setAttribute('draggable', 'true'); pad1.classList.add('cursor-grab');
-            pad2.setAttribute('draggable', 'true'); pad2.classList.add('cursor-grab');
-            storageBox.appendChild(pad1); storageBox.appendChild(pad2);
-            updateHardwareLeds();
+            attachedPadsCount = 0; const storageBox = document.getElementById('pad-storage-box'); const pad1 = document.getElementById('pad1'); const pad2 = document.getElementById('pad2');
+            const t1 = document.getElementById('target-pad1'); t1.innerHTML = '放置右胸'; t1.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-red-500 rounded-lg md:rounded-xl absolute top-10 left-6 flex items-center justify-center text-[9px] md:text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
+            const t2 = document.getElementById('target-pad2'); t2.innerHTML = '放置左下肋'; t2.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-blue-500 rounded-lg md:rounded-xl absolute bottom-8 right-6 flex items-center justify-center text-[9px] md:text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
+            pad1.style.width = ''; pad1.style.height = ''; pad2.style.width = ''; pad2.style.height = '';
+            pad1.setAttribute('draggable', 'true'); pad1.classList.add('cursor-grab', 'touch-none');
+            pad2.setAttribute('draggable', 'true'); pad2.classList.add('cursor-grab', 'touch-none');
+            storageBox.appendChild(pad1); storageBox.appendChild(pad2); updateHardwareLeds();
         }
 
-        // ================= 終極高穩定性開機監聽整合邏輯 =================
-        btnPower.addEventListener('click', async () => {
-            // 【硬核解鎖：第一層】不論音訊是否成功，強制推動 JavaScript 狀態機，保證畫面文字、燈號絕對要亮起
+        // ================= 原本的電源按鈕：此時已被完美預熱，點擊必秒出聲音 =================
+        btnPower.addEventListener('click', () => {
             const targetState = (currentState === STATES.OFF) ? STATES.POWER_ON : STATES.OFF;
-            
-            // 【硬核解鎖：第二層】非同步處理音訊，被瀏覽器阻擋也不會卡死主執行緒
-            try {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioCtx.state === 'suspended') {
-                    await audioCtx.resume();
-                }
-                // 丟一個空白語音給瀏覽器進行「聲道預熱」
-                const dummy = new SpeechSynthesisUtterance("");
-                window.speechSynthesis.speak(dummy);
-            } catch (audioError) {
-                console.warn("瀏覽器隱私政策限制了部分音訊自動播放，但機台仍將正常運作。");
-            }
-
-            // 最終執行開關機狀態變更
             changeState(targetState);
         });
-
+        
         btnShock.addEventListener('click', () => currentState === STATES.SHOCK_ADVISED ? changeState(STATES.SHOCKING) : null);
+
+        // ================= 終極解鎖：歡迎大門按鈕事件 =================
+        document.getElementById('btn-unlock-audio').addEventListener('click', async () => {
+            // 1. 強制建立並解除 Web AudioAPI 的瀏覽器鎖
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+            
+            // 2. 扔出一句無聲音訊，強迫手機作業系統「在合法點擊事件中」完成 TTS 語音引擎加載
+            const unlockUtterance = new SpeechSynthesisUtterance("");
+            window.speechSynthesis.speak(unlockUtterance);
+            
+            // 3. 環境解鎖完畢，淡出遮罩大門
+            document.getElementById('welcome-gate').classList.add('hidden');
+        });
+
+        // 環境偵測
+        window.addEventListener('DOMContentLoaded', () => {
+            const ua = navigator.userAgent || navigator.vendor || window.opera;
+            const isLine = (ua.indexOf('LINE') > -1);
+            if (isLine) {
+                document.getElementById('line-browser-alert').classList.remove('hidden');
+                document.getElementById('line-warning').classList.remove('hidden');
+            }
+        });
     </script>
 </body>
 </html>
