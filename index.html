@@ -1453,6 +1453,17 @@
                 </select>
                 <p class="hint" style="margin-top:-4px;margin-bottom:8px;">可愛電氣音效為原創音效，不使用任何角色原聲。</p>
 
+                <div class="instructor-section" style="margin-top:12px;">
+                    <div class="instructor-section-title">CPR 週期控制</div>
+                    <label class="toggle-pill" style="width:100%;justify-content:flex-start;">
+                        <input type="checkbox" id="auto-reanalyze-toggle">
+                        CPR 2 分鐘後自動重新分析心律
+                    </label>
+                    <p class="hint" style="margin-top:8px;margin-bottom:0;text-align:left;">
+                        開啟後，進入 CPR 滿 2 分鐘會自動回到「分析心律」。關閉時則維持 CPR 節拍直到教官重置或切換流程。
+                    </p>
+                </div>
+
                 <div class="instructor-grid" style="margin-top:8px;">
                     <button id="btn-save-prompts" class="instructor-btn green">套用並儲存</button>
                     <button id="btn-reset-prompts" class="instructor-btn amber">恢復預設</button>
@@ -1679,7 +1690,15 @@
                         break;
 
                     case 'ASYSTOLE':
-                        y += (Math.random() - 0.5) * 4;
+                        // Asystole：接近水平的無收縮心律。
+                        // 參考真實心電圖紙上的表現：不是完全死直線，而是極低振幅、緩慢基線漂移，加上少量細微雜訊。
+                        const baselineDrift = Math.sin(this.x / 46) * 1.4 + Math.sin(this.x / 113) * 0.8;
+                        const fineNoise = (Math.random() - 0.5) * 1.2;
+
+                        // 偶發極小雜訊，避免畫面像電腦畫的完全直線，但不做成可電擊心律。
+                        const tinyArtifact = Math.random() < 0.018 ? (Math.random() - 0.5) * 2.2 : 0;
+
+                        y += baselineDrift + fineNoise + tinyArtifact;
                         break;
 
                     case 'CPR':
@@ -1741,14 +1760,17 @@
         let currentState = STATES.OFF;
         let cprInterval = null;
         let warningVoiceInterval = null;
+        let reanalyzeTimer = null;
         let attachedPadsCount = 0;
         let audioUnlocked = false;
 
         // CPR 節拍控制：110 BPM = 每 545.45ms 一拍
         const CPR_BPM = 110;
         const CPR_BEAT_MS = 60000 / CPR_BPM;
+        const CPR_REANALYZE_MS = 120000;
         let cprBeatCount = 0;
         let cprNextBeatAt = 0;
+        let autoReanalyzeEnabled = localStorage.getItem('aedAutoReanalyzeAfterCpr') === '1';
 
         const ecg = new ECGChart('ecg-canvas');
 
@@ -1828,10 +1850,15 @@
         };
 
         const chargeSoundModeSelect = document.getElementById('charge-sound-mode');
+        const autoReanalyzeToggle = document.getElementById('auto-reanalyze-toggle');
         let chargeSoundMode = localStorage.getItem('aedChargeSoundMode') || 'standard';
 
         if (chargeSoundModeSelect) {
             chargeSoundModeSelect.value = chargeSoundMode;
+        }
+
+        if (autoReanalyzeToggle) {
+            autoReanalyzeToggle.checked = autoReanalyzeEnabled;
         }
 
         function loadVoicePrompts() {
@@ -2377,7 +2404,12 @@
 
             cprBeatCount += 1;
 
-            screen.innerHTML = "請立即開始持續壓胸";
+            if (autoReanalyzeEnabled) {
+                screen.innerHTML = "請立即開始持續壓胸<br>2 分鐘後重新分析";
+            } else {
+                screen.innerHTML = "請立即開始持續壓胸";
+            }
+
             ecg.triggerCprPulse();
 
             // 讓畫面和聲音同一拍閃一下，方便現場看節拍是否一致。
@@ -2406,6 +2438,23 @@
             const delay = Math.max(0, cprNextBeatAt - performance.now());
 
             cprInterval = setTimeout(scheduleNextCprVisualBeat, delay);
+        }
+
+        function scheduleCprReanalysis() {
+            clearTimeout(reanalyzeTimer);
+            reanalyzeTimer = null;
+
+            if (!autoReanalyzeEnabled || currentState !== STATES.CPR) {
+                return;
+            }
+
+            reanalyzeTimer = setTimeout(() => {
+                if (currentState === STATES.CPR && autoReanalyzeEnabled) {
+                    screen.innerHTML = "2 分鐘 CPR 完成<br>重新分析心律";
+                    stopCprLoopAudio();
+                    changeState(STATES.ANALYZING);
+                }
+            }, CPR_REANALYZE_MS);
         }
 
         function resetShockButton() {
@@ -2471,9 +2520,11 @@
 
             clearTimeout(cprInterval);
             clearInterval(warningVoiceInterval);
+            clearTimeout(reanalyzeTimer);
 
             cprInterval = null;
             warningVoiceInterval = null;
+            reanalyzeTimer = null;
 
             stopCprLoopAudio();
             resetShockButton();
@@ -2533,14 +2584,17 @@
                     trainingArea.classList.add('disabled-training');
 
                     speakPrompt("analyze");
-                    ecg.setType('NORMAL');
+
+                    const analyzingScenario = document.querySelector('input[name="scenario"]:checked')?.value || 'shock';
+                    // 不需電擊情境明確固定為 Asystole 心律；需要電擊情境則顯示 VF。
+                    ecg.setType(analyzingScenario === 'shock' ? 'VF' : 'ASYSTOLE');
 
                     setTimeout(() => {
                         if (currentState !== STATES.ANALYZING) {
                             return;
                         }
 
-                        const scenario = document.querySelector('input[name="scenario"]:checked').value;
+                        const scenario = document.querySelector('input[name="scenario"]:checked')?.value || analyzingScenario;
 
                         if (scenario === 'shock') {
                             ecg.setType('VF');
@@ -2613,21 +2667,28 @@
                     break;
 
                 case STATES.CPR:
-                    screen.innerHTML = "請立即開始持續壓胸";
+                    screen.innerHTML = autoReanalyzeEnabled
+                        ? "請立即開始持續壓胸<br>2 分鐘後重新分析"
+                        : "請立即開始持續壓胸";
                     speakPrompt("cpr");
+
+                    // CPR 階段恢復原本邏輯：不論前面是否不須電擊，進入 CPR 後顯示壓胸波形。
                     ecg.setType('CPR');
 
                     cprBeatCount = 0;
                     cprNextBeatAt = performance.now();
 
                     clearTimeout(cprInterval);
+                    clearTimeout(reanalyzeTimer);
                     cprInterval = null;
+                    reanalyzeTimer = null;
 
                     // 聲音改用 2 分鐘 110 BPM 單一連續節拍音軌，不再 6 秒 loop，因此不會第 11 下停頓。
                     startCprLoopAudio();
 
                     // 畫面閃爍與 ECG 仍用校正節拍器，但不再每拍呼叫 audio.play()。
                     scheduleNextCprVisualBeat();
+                    scheduleCprReanalysis();
 
                     break;
             }
@@ -3038,6 +3099,21 @@
             });
         }
 
+        if (autoReanalyzeToggle) {
+            autoReanalyzeToggle.addEventListener('change', () => {
+                autoReanalyzeEnabled = !!autoReanalyzeToggle.checked;
+                localStorage.setItem('aedAutoReanalyzeAfterCpr', autoReanalyzeEnabled ? '1' : '0');
+                showToast(autoReanalyzeEnabled ? "已開啟：CPR 2 分鐘後重新分析" : "已關閉：CPR 後不自動重新分析");
+
+                clearTimeout(reanalyzeTimer);
+                reanalyzeTimer = null;
+
+                if (currentState === STATES.CPR && autoReanalyzeEnabled) {
+                    scheduleCprReanalysis();
+                }
+            });
+        }
+
         document.getElementById('btn-force-shock').addEventListener('click', () => {
             setScenarioMode('shock');
         });
@@ -3058,20 +3134,22 @@
             showToast("已重置 AED 流程");
         });
 
-        voiceModeSelect.addEventListener('change', () => {
-            currentVoiceMode = voiceModeSelect.value;
-            updateInstructorStatus();
+        if (voiceModeSelect) {
+            voiceModeSelect.addEventListener('change', () => {
+                currentVoiceMode = voiceModeSelect.value || 'zh-TW';
+                updateInstructorStatus();
 
-            if (currentVoiceMode === 'mute') {
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
+                if (currentVoiceMode === 'mute') {
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                    }
+                    showToast("已切換：靜音字幕版");
+                } else {
+                    speakPrompt("voiceModeChanged");
+                    showToast("已切換：" + getVoiceModeLabel(currentVoiceMode));
                 }
-                showToast("已切換：靜音字幕版");
-            } else {
-                speakPrompt("voiceModeChanged");
-                showToast("已切換：" + getVoiceModeLabel(currentVoiceMode));
-            }
-        });
+            });
+        }
 
         document.querySelectorAll('input[name="scenario"]').forEach(radio => {
             radio.addEventListener('change', updateInstructorStatus);

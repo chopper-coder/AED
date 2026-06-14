@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aed-pwa-no-cpr-leak-on-enter-fixed-v1';
+const CACHE_NAME = 'aed-pwa-asystole-waveform-fixed-v1';
 const ASSETS = ['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => k === CACHE_NAME ? null : caches.delete(k)))).then(() => self.clients.claim())); });
