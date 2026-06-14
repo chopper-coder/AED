@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AED 模擬教學器 - 專業宣導現場版</title>
+    <title>AED 模擬教學器 - 消防宣導專業版</title>
+    <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
@@ -38,15 +39,15 @@
         <div class="max-w-sm w-full bg-slate-800 border border-slate-700 p-6 rounded-3xl shadow-2xl flex flex-col items-center">
             <div class="w-20 h-20 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-4xl mb-4 font-black">⚡</div>
             <h1 class="text-2xl font-black mb-2 tracking-wide text-amber-400">AED 數位模擬教學系統</h1>
-            <p class="text-xs text-slate-400 mb-6 leading-relaxed">為了確保在行動裝置（iOS/Android）上擬真救護語音與警報音效能即時流暢播放，請點擊下方按鈕初始化互動環境。</p>
+            <p class="text-xs text-slate-400 mb-6 leading-relaxed">為了確保在行動裝置上救護語音與壓胸節拍音能即時流暢播放，請點擊下方按鈕初始化互動環境。</p>
             
-            <button id="btn-unlock-audio" class="w-full py-4 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black text-base rounded-xl shadow-lg shadow-green-900/30 transition-all cursor-pointer">
+            <button id="btn-unlock-audio" class="w-full py-4 bg-green-600 hover:bg-green-500 active:scale-95 text-white font-black text-base rounded-xl shadow-lg transition-all cursor-pointer">
                 進入模擬教學 (解鎖語音)
             </button>
             
             <div id="line-warning" class="hidden mt-6 pt-4 border-t border-slate-700 text-left">
                 <p class="text-xs text-red-400 font-bold mb-2">⚠️ 偵測到您目前正在使用 LINE 內建視窗：</p>
-                <p class="text-[11px] text-slate-400 leading-normal">LINE 會強制封鎖語音。請點擊右上角「•••」並選擇「在 Safari 中開啟」或「在 Chrome 中開啟」以獲得正常聲音。</p>
+                <p class="text-[11px] text-slate-400 leading-normal">LINE 會強制封鎖語音。請點擊右上角「•••」並選擇「在 Safari / Chrome 中開啟」以獲得正常聲音。</p>
             </div>
         </div>
     </div>
@@ -170,7 +171,11 @@
 
         const STATES = { OFF: 'OFF', POWER_ON: 'POWER_ON', WAIT_PADS: 'WAIT_PADS', ANALYZING: 'ANALYZING', SHOCK_ADVISED: 'SHOCK_ADVISED', SHOCKING: 'SHOCKING', CPR: 'CPR' };
         let currentState = STATES.OFF;
-        let cprInterval = null; let warningVoiceInterval = null; let audioCtx = null; let attachedPadsCount = 0;
+        let cprInterval = null; 
+        let warningVoiceInterval = null; 
+        let padsTimeoutInterval = null; 
+        let audioCtx = null; 
+        let attachedPadsCount = 0;
 
         const ecg = new ECGChart('ecg-canvas');
         const screen = document.getElementById('status-screen');
@@ -191,14 +196,22 @@
             } catch(e) { console.warn("語音播放受阻:", e); }
         }
 
+        // 優化修復：強化音訊驅動，在任何狀態變更時就地確保 AudioContext 處於作用狀態
         function playBeep(frequency, duration) {
             try {
-                if (!audioCtx || audioCtx.state === 'suspended') return; 
-                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-                osc.type = 'sine'; osc.frequency.value = frequency; gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + duration);
-            } catch(e) { console.warn("音訊播放受阻:", e); }
+                if (!audioCtx) return;
+                if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+                
+                const osc = audioCtx.createOscillator(); 
+                const gain = audioCtx.createGain();
+                osc.type = 'sine'; 
+                osc.frequency.value = frequency; 
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime); 
+                osc.connect(gain); 
+                gain.connect(audioCtx.destination);
+                osc.start(); 
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) { console.warn("音訊播報受阻:", e); }
         }
 
         function updateHardwareLeds() {
@@ -225,7 +238,7 @@
         }
 
         function changeState(newState) {
-            currentState = newState; clearInterval(cprInterval); clearInterval(warningVoiceInterval); 
+            currentState = newState; clearInterval(cprInterval); clearInterval(warningVoiceInterval); clearInterval(padsTimeoutInterval);
             btnShock.disabled = true; btnShock.classList.remove('blinking', 'bg-red-500', 'cursor-pointer'); btnShock.classList.add('bg-red-700', 'opacity-40', 'cursor-not-allowed');
             updateHardwareLeds();
 
@@ -240,17 +253,17 @@
                     screen.innerHTML = "開機中...<br>請保持冷靜";
                     btnPower.className = "w-14 h-14 bg-red-600 hover:bg-red-500 active:scale-95 border-2 border-red-700 text-white font-black rounded-full shadow-md flex items-center justify-center text-xs transition-all cursor-pointer";
                     ecg.start(); ecg.setType('NORMAL'); 
-                    
-                    // 執行瞬發開機嗶聲
                     playBeep(1200, 0.08); setTimeout(() => playBeep(1200, 0.08), 150); setTimeout(() => playBeep(1500, 0.15), 300);
-                    
-                    // 由於環境已經由歡迎按鈕徹底解鎖，此處語音必定秒出
                     speak("請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。");
-
                     setTimeout(() => { if(currentState === STATES.POWER_ON) changeState(STATES.WAIT_PADS); }, 5200);
                     break;
                 case STATES.WAIT_PADS:
                     screen.innerHTML = "請撕開包裝<br>【將貼片拖曳至右胸與左下肋】"; trainingArea.classList.remove('opacity-30', 'pointer-events-none');
+                    padsTimeoutInterval = setInterval(() => {
+                        if (currentState === STATES.WAIT_PADS && attachedPadsCount < 2) {
+                            speak("請撕開紅色貼片，緊貼在病患右上胸；請撕開藍色貼片，緊貼在病患左下肋。");
+                        }
+                    }, 15000); 
                     break;
                 case STATES.ANALYZING:
                     screen.innerHTML = "正在分析心律...<br>請勿碰觸病患！"; trainingArea.classList.add('pointer-events-none');
@@ -287,7 +300,11 @@
                     break;
                 case STATES.CPR:
                     screen.innerHTML = "請立即開始持續壓胸"; speak("請立即開始持續壓胸。"); ecg.setType('CPR'); 
-                    cprInterval = setInterval(() => { screen.innerHTML = `請立即開始持續壓胸<br>嗶！ (110 BPM)`; playBeep(1000, 0.1); ecg.triggerCprPulse(); }, 545);
+                    cprInterval = setInterval(() => {
+                        screen.innerHTML = `請立即開始持續壓胸<br><span class="text-yellow-400 font-bold">嗶！ (110 BPM)</span>`;
+                        playBeep(1000, 0.12); 
+                        ecg.triggerCprPulse();
+                    }, 545);
                     break;
             }
         }
@@ -341,37 +358,40 @@
             storageBox.appendChild(pad1); storageBox.appendChild(pad2); updateHardwareLeds();
         }
 
-        // ================= 原本的電源按鈕：此時已被完美預熱，點擊必秒出聲音 =================
+        // 歡迎蓋板按鈕事件
+        document.getElementById('btn-unlock-audio').addEventListener('click', async () => {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') { await audioCtx.resume(); }
+            const unlockUtterance = new SpeechSynthesisUtterance("");
+            window.speechSynthesis.speak(unlockUtterance);
+            document.getElementById('welcome-gate').classList.add('hidden');
+        });
+
         btnPower.addEventListener('click', () => {
             const targetState = (currentState === STATES.OFF) ? STATES.POWER_ON : STATES.OFF;
             changeState(targetState);
         });
-        
         btnShock.addEventListener('click', () => currentState === STATES.SHOCK_ADVISED ? changeState(STATES.SHOCKING) : null);
 
-        // ================= 終極解鎖：歡迎大門按鈕事件 =================
-        document.getElementById('btn-unlock-audio').addEventListener('click', async () => {
-            // 1. 強制建立並解除 Web AudioAPI 的瀏覽器鎖
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') {
-                await audioCtx.resume();
-            }
-            
-            // 2. 扔出一句無聲音訊，強迫手機作業系統「在合法點擊事件中」完成 TTS 語音引擎加載
-            const unlockUtterance = new SpeechSynthesisUtterance("");
-            window.speechSynthesis.speak(unlockUtterance);
-            
-            // 3. 環境解鎖完畢，淡出遮罩大門
-            document.getElementById('welcome-gate').classList.add('hidden');
-        });
-
-        // 環境偵測
+        // 環境與 PWA 動態註冊
         window.addEventListener('DOMContentLoaded', () => {
             const ua = navigator.userAgent || navigator.vendor || window.opera;
             const isLine = (ua.indexOf('LINE') > -1);
             if (isLine) {
                 document.getElementById('line-browser-alert').classList.remove('hidden');
                 document.getElementById('line-warning').classList.remove('hidden');
+            }
+            
+            if ('serviceWorker' in navigator && !isLine) {
+                const swCode = `
+                    const CACHE_NAME = 'aed-v1';
+                    const urlsToCache = [location.href];
+                    self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(urlsToCache))); });
+                    self.addEventListener('fetch', e => { e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('PWA ServiceWorker 註冊失敗:', err));
             }
         });
     </script>
