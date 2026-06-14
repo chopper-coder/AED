@@ -91,6 +91,11 @@
             animation: shock-flash 0.6s ease-out;
         }
 
+        .beat-flash {
+            box-shadow: 0 0 0 4px rgba(34,197,94,0.18), 0 0 28px rgba(34,197,94,0.45) !important;
+            transform: scale(1.02);
+        }
+
         .led-amber-flashing {
             animation: led-flash-amber 0.4s infinite;
         }
@@ -934,6 +939,12 @@
         let attachedPadsCount = 0;
         let audioUnlocked = false;
 
+        // CPR 節拍控制：110 BPM = 每 545.45ms 一拍
+        const CPR_BPM = 110;
+        const CPR_BEAT_MS = 60000 / CPR_BPM;
+        let cprBeatCount = 0;
+        let cprNextBeatAt = 0;
+
         const ecg = new ECGChart('ecg-canvas');
 
         const screen = document.getElementById('status-screen');
@@ -950,6 +961,16 @@
         const cprBeepAudio = document.getElementById('cpr-beep-audio');
         const bootAudio = document.getElementById('boot-audio');
         const shockAudio = document.getElementById('shock-audio');
+
+        // 手機上單一 Audio 重複 currentTime=0 會有延遲；建立音檔池輪流播放，比較跟得上節拍。
+        const cprBeepPool = Array.from({ length: 6 }, () => {
+            const audio = new Audio(cprBeepAudio.src);
+            audio.preload = "auto";
+            audio.setAttribute("playsinline", "");
+            audio.volume = 1.0;
+            return audio;
+        });
+        let cprBeepPoolIndex = 0;
 
         function speak(text) {
             try {
@@ -1000,7 +1021,62 @@
         }
 
         function playCprBeep() {
-            return playAudioElement(cprBeepAudio, true);
+            try {
+                const audio = cprBeepPool[cprBeepPoolIndex];
+                cprBeepPoolIndex = (cprBeepPoolIndex + 1) % cprBeepPool.length;
+
+                audio.pause();
+                audio.currentTime = 0;
+
+                const p = audio.play();
+                if (p && typeof p.catch === 'function') {
+                    p.catch((e) => console.warn("CPR beep 播放受阻：", e));
+                }
+
+                return true;
+            } catch (e) {
+                console.warn("CPR beep 播放錯誤：", e);
+                return false;
+            }
+        }
+
+        function doCprBeat() {
+            if (currentState !== STATES.CPR) {
+                return;
+            }
+
+            cprBeatCount += 1;
+
+            screen.innerHTML = "請立即開始持續壓胸<br>嗶！ 110 BPM｜第 " + cprBeatCount + " 拍";
+            playCprBeep();
+            ecg.triggerCprPulse();
+
+            // 讓畫面和聲音同一拍閃一下，方便現場看節拍是否一致。
+            anniChest.classList.add('beat-flash');
+            setTimeout(() => {
+                anniChest.classList.remove('beat-flash');
+            }, 90);
+        }
+
+        function scheduleNextCprBeat() {
+            if (currentState !== STATES.CPR) {
+                return;
+            }
+
+            const now = performance.now();
+
+            // 若手機卡頓太久，直接重新對齊，避免越跑越偏。
+            if (!cprNextBeatAt || now - cprNextBeatAt > CPR_BEAT_MS * 2) {
+                cprNextBeatAt = now;
+            }
+
+            doCprBeat();
+
+            cprNextBeatAt += CPR_BEAT_MS;
+
+            const delay = Math.max(0, cprNextBeatAt - performance.now());
+
+            cprInterval = setTimeout(scheduleNextCprBeat, delay);
         }
 
         function resetShockButton() {
@@ -1063,7 +1139,7 @@
         function changeState(newState) {
             currentState = newState;
 
-            clearInterval(cprInterval);
+            clearTimeout(cprInterval);
             clearInterval(warningVoiceInterval);
 
             cprInterval = null;
@@ -1212,23 +1288,18 @@
                     break;
 
                 case STATES.CPR:
-                    screen.innerHTML = "請立即開始持續壓胸";
+                    screen.innerHTML = "請立即開始持續壓胸<br>準備 110 BPM 節拍";
                     speak("請立即開始持續壓胸。");
                     ecg.setType('CPR');
 
-                    void playCprBeep();
+                    cprBeatCount = 0;
+                    cprNextBeatAt = performance.now();
 
-                    cprInterval = setInterval(() => {
-                        if (currentState !== STATES.CPR) {
-                            clearInterval(cprInterval);
-                            cprInterval = null;
-                            return;
-                        }
+                    clearTimeout(cprInterval);
+                    cprInterval = null;
 
-                        screen.innerHTML = "請立即開始持續壓胸<br>嗶！ (110 BPM)";
-                        void playCprBeep();
-                        ecg.triggerCprPulse();
-                    }, 545);
+                    // 用自我校正的 setTimeout 節拍器，不用 setInterval，避免手機累積誤差。
+                    scheduleNextCprBeat();
 
                     break;
             }
@@ -1432,9 +1503,9 @@
             try {
                 const ok = await playAudioElement(unlockAudio, true);
 
-                // iOS/Android 對同一個音檔物件比較敏感，解鎖時也預跑 CPR beep 音檔一次。
+                // iOS/Android 對同一個音檔物件比較敏感，解鎖時也預跑 CPR beep 音檔池。
                 setTimeout(() => {
-                    void playAudioElement(cprBeepAudio, true);
+                    void playCprBeep();
                 }, 160);
 
                 audioUnlocked = ok;
