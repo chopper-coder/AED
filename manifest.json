@@ -1,7 +1,7 @@
 {
-  "name": "AED 模擬教學器 V2 離線穩定版",
-  "short_name": "AED 教學器 V2",
-  "description": "AED 模擬教學器，支援離線使用、貼片拖曳、電擊防錯與 CPR 節拍。",
+  "name": "AED 模擬教學器 V2.2 GitHub CPR 嗶聲恢復版",
+  "short_name": "AED V2.2",
+  "description": "AED 模擬教學器 V2.2：離線穩定、GitHub Pages 可用，恢復手機 CPR 110 BPM 嗶聲。",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

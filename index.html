@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:;" />
   <meta name="theme-color" content="#f59e0b" />
-  <meta name="description" content="AED 模擬教學器 V2 離線穩定版，支援貼片拖曳、心律分析、電擊防錯、CPR 節拍與 PWA 離線快取。" />
+  <meta name="description" content="AED 模擬教學器 V2.2 GitHub CPR 嗶聲恢復版，支援貼片拖曳、心律分析、電擊防錯、CPR 110 BPM 節拍與 PWA 離線快取。" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="aed-icon.svg" type="image/svg+xml" />
-  <title>AED 模擬教學器 V2 - 離線穩定版</title>
+  <title>AED 模擬教學器 V2.2 - GitHub CPR 嗶聲恢復版</title>
   <style>
     :root {
       --amber: #f59e0b;
@@ -465,7 +465,7 @@
   <main class="app-shell" aria-label="AED 模擬教學器">
     <section class="aed-machine" aria-label="AED 主機面板">
       <div>
-        <div class="machine-title">▲ AED 模擬教學器 V2</div>
+        <div class="machine-title">▲ AED 模擬教學器 V2.2</div>
         <div class="screen-container">
           <canvas id="ecg-canvas" width="420" height="88" aria-label="心電圖模擬畫面"></canvas>
           <div class="status-screen"><div id="status-screen">機器未開機<br />請按下綠色電源鍵</div></div>
@@ -510,7 +510,7 @@
         </svg>
         <div id="target-pad1" data-target="pad1" class="pad-target target-pad1">放置<br />右胸</div>
         <div id="target-pad2" data-target="pad2" class="pad-target target-pad2">放置<br />左下肋</div>
-        <div id="danger-overlay" class="danger-overlay">⚠️ 放電危險<br />勿碰病患 ⚠️</div>
+        <div id="danger-overlay" class="danger-overlay" aria-hidden="true"></div>
       </div>
 
       <div id="pad-storage-box" class="pad-storage-box" aria-label="AED 貼片放置區">
@@ -519,7 +519,7 @@
       </div>
 
       <div class="note-box">
-        <strong>教學提醒：</strong>分析、充電或放電時觸碰病患會觸發「安全防錯」事故情境。CPR 階段會自動播放 110 BPM 節拍音。
+        <strong>教學提醒：</strong>分析、充電或放電時觸碰病患仍會觸發「安全防錯」事故情境；畫面不再顯示放電危險提示覆蓋層。CPR 階段會自動播放 110 BPM 節拍音。
       </div>
     </section>
   </main>
@@ -703,19 +703,20 @@
 
     function playBeep(frequency, duration, volume = 0.1) {
       try {
-        if (!audioCtx) return;
+        // V2.2：恢復原本手機較穩定的直接發聲方式。
+        // 重點：不要在 CPR 節拍上使用過短的淡入淡出音量曲線；
+        // 若 audioCtx 不存在，直接建立，與原本可發聲版本一致。
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        const now = audioCtx.currentTime;
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(frequency, now);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(Math.max(volume, 0.001), now + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + Math.max(duration, 0.03));
+        osc.frequency.value = frequency;
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.start(now);
-        osc.stop(now + Math.max(duration, 0.03) + 0.02);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
       } catch (err) {
         console.warn('音訊播報受阻:', err);
       }
@@ -839,7 +840,6 @@
 
         case STATES.SHOCK_ADVISED:
           screen.innerHTML = '建議電擊！正在充電！<br />請遠離病患！';
-          dangerOverlay.classList.add('show');
           speak('建議電擊，正在充電。請遠離病患！');
           let chargeTimer = 0;
           chargeInterval = setInterval(() => {
@@ -876,7 +876,7 @@
           ecg.setType('CPR');
           cprInterval = setInterval(() => {
             screen.innerHTML = '請立即開始持續壓胸<br /><span class="yellow-text">嗶！110 BPM</span>';
-            playBeep(1000, 0.095, 0.10);
+            playBeep(1000, 0.10, 0.16);
             ecg.triggerCprPulse();
           }, 545);
           break;
