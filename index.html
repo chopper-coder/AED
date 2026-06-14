@@ -1360,7 +1360,7 @@
             <h1 class="gate-title">AED 數位模擬教學系統</h1>
 
             <p class="gate-text">
-                本版為離線版，已內建 CPR 嗶聲音檔。手機瀏覽器會限制自動播放，請先按下方按鈕啟用聲音。
+                本版為離線版。手機瀏覽器會限制自動播放，請先按下方按鈕啟用 AED 語音與音效；CPR 節拍只會在 CPR 階段播放。
             </p>
 
             <button id="btn-unlock-audio" class="unlock-btn">
@@ -2208,6 +2208,12 @@
                     return false;
                 }
 
+                // 重要：CPR 連續節拍音軌不得在進入畫面時預播放或解鎖。
+                // 部分手機即使 muted/volume=0 仍可能漏出 CPR 嗶聲。
+                if (audioElement === cprLoopAudio) {
+                    return false;
+                }
+
                 const useMuted = !!options.muted;
                 audioElement.load();
 
@@ -2270,12 +2276,6 @@
                 }
             }
 
-            // CPR 音軌另外用 muted=true 解鎖，不讓進入畫面時出現 CPR 嗶聲。
-            const cprOk = await primeAudioElement(cprLoopAudio, { muted: true });
-            if (cprOk) {
-                okCount += 1;
-            }
-
             return okCount;
         }
 
@@ -2297,7 +2297,7 @@
                     p.catch((e) => {
                         console.warn("CPR 連續節拍音軌播放受阻：", e);
                         if (currentState === STATES.CPR) {
-                            screen.innerHTML = "請立即開始持續壓胸<br>若無節拍音，請再點一下畫面";
+                            screen.innerHTML = "請立即開始持續壓胸<br>若無節拍音，請點一下畫面啟用";
                         }
                     });
                 }
