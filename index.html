@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:;" />
   <meta name="theme-color" content="#f59e0b" />
-  <meta name="description" content="AED 模擬教學器 V2.2 GitHub CPR 嗶聲恢復版，支援貼片拖曳、心律分析、電擊防錯、CPR 110 BPM 節拍與 PWA 離線快取。" />
+  <meta name="description" content="AED 模擬教學器 V2.3 GitHub CPR 手機音效修正版，支援貼片拖曳、心律分析、電擊防錯、CPR 110 BPM 節拍與 PWA 離線快取。" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="aed-icon.svg" type="image/svg+xml" />
-  <title>AED 模擬教學器 V2.2 - GitHub CPR 嗶聲恢復版</title>
+  <title>AED 模擬教學器 V2.3 - GitHub CPR 手機音效修正版</title>
   <style>
     :root {
       --amber: #f59e0b;
@@ -465,7 +465,7 @@
   <main class="app-shell" aria-label="AED 模擬教學器">
     <section class="aed-machine" aria-label="AED 主機面板">
       <div>
-        <div class="machine-title">▲ AED 模擬教學器 V2.2</div>
+        <div class="machine-title">▲ AED 模擬教學器 V2.3</div>
         <div class="screen-container">
           <canvas id="ecg-canvas" width="420" height="88" aria-label="心電圖模擬畫面"></canvas>
           <div class="status-screen"><div id="status-screen">機器未開機<br />請按下綠色電源鍵</div></div>
@@ -517,14 +517,10 @@
         <div id="pad1" class="pad-item pad-red" data-pad="pad1" role="button" tabindex="0"><span>⚡ 貼片</span><small>右上</small></div>
         <div id="pad2" class="pad-item pad-blue" data-pad="pad2" role="button" tabindex="0"><span>⚡ 貼片</span><small>左下</small></div>
       </div>
-
-      <div class="note-box">
-        <strong>教學提醒：</strong>分析、充電或放電時觸碰病患仍會觸發「安全防錯」事故情境；畫面不再顯示放電危險提示覆蓋層。CPR 階段會自動播放 110 BPM 節拍音。
-      </div>
     </section>
   </main>
 
-  <div id="install-status" class="install-status">離線版：頁面可直接開啟；PWA 快取需 http/https 環境</div>
+  <div id="install-status" class="install-status">V2.3 離線版</div>
 
   <script>
     'use strict';
@@ -644,6 +640,8 @@
     let chargeInterval = null;
     let transitionTimer = null;
     let audioCtx = null;
+    let cprOscillator = null;
+    let cprGain = null;
     let attachedPadsCount = 0;
     let dragState = null;
 
@@ -660,11 +658,11 @@
     const installStatus = document.getElementById('install-status');
 
     function clearAllTimers() {
-      [cprInterval, warningVoiceInterval, padsTimeoutInterval, chargeInterval].forEach((timer) => {
+      stopCprToneLoop();
+      [warningVoiceInterval, padsTimeoutInterval, chargeInterval].forEach((timer) => {
         if (timer) clearInterval(timer);
       });
       if (transitionTimer) clearTimeout(transitionTimer);
-      cprInterval = null;
       warningVoiceInterval = null;
       padsTimeoutInterval = null;
       chargeInterval = null;
@@ -703,9 +701,7 @@
 
     function playBeep(frequency, duration, volume = 0.1) {
       try {
-        // V2.2：恢復原本手機較穩定的直接發聲方式。
-        // 重點：不要在 CPR 節拍上使用過短的淡入淡出音量曲線；
-        // 若 audioCtx 不存在，直接建立，與原本可發聲版本一致。
+        // V2.3：保留原本直接發聲方式，並在需要時喚醒 AudioContext。
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
         const osc = audioCtx.createOscillator();
@@ -720,6 +716,68 @@
       } catch (err) {
         console.warn('音訊播報受阻:', err);
       }
+    }
+
+    function stopCprToneLoop() {
+      if (cprInterval) clearInterval(cprInterval);
+      cprInterval = null;
+      try {
+        if (cprGain && audioCtx) {
+          const now = audioCtx.currentTime;
+          cprGain.gain.cancelScheduledValues(now);
+          cprGain.gain.setValueAtTime(0, now);
+        }
+        if (cprOscillator) {
+          cprOscillator.stop();
+          cprOscillator.disconnect();
+        }
+        if (cprGain) cprGain.disconnect();
+      } catch (_) {}
+      cprOscillator = null;
+      cprGain = null;
+    }
+
+    function cprPulseOnce() {
+      if (currentState !== STATES.CPR) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        const now = audioCtx.currentTime;
+        if (cprGain) {
+          cprGain.gain.cancelScheduledValues(now);
+          cprGain.gain.setValueAtTime(0.20, now);
+          cprGain.gain.setValueAtTime(0.20, now + 0.10);
+          cprGain.gain.setValueAtTime(0.0, now + 0.105);
+        } else {
+          playBeep(1000, 0.10, 0.20);
+        }
+      } catch (err) {
+        console.warn('CPR 節拍音播放受阻:', err);
+      }
+      screen.innerHTML = '請立即開始持續壓胸<br /><span class="yellow-text">嗶！110 BPM</span>';
+      ecg.triggerCprPulse();
+    }
+
+    async function startCprToneLoop() {
+      stopCprToneLoop();
+      await ensureAudioContext();
+      if (currentState !== STATES.CPR || !audioCtx) return;
+      try {
+        cprOscillator = audioCtx.createOscillator();
+        cprGain = audioCtx.createGain();
+        cprOscillator.type = 'sine';
+        cprOscillator.frequency.value = 1000;
+        cprGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        cprOscillator.connect(cprGain);
+        cprGain.connect(audioCtx.destination);
+        cprOscillator.start();
+      } catch (err) {
+        console.warn('CPR 連續音訊引擎啟動失敗，改用單次嗶聲:', err);
+        cprOscillator = null;
+        cprGain = null;
+      }
+      cprPulseOnce();
+      cprInterval = setInterval(cprPulseOnce, 545);
     }
 
     function playZappingNoise() {
@@ -874,11 +932,7 @@
           screen.innerHTML = '請立即開始持續壓胸';
           speak('請立即開始持續壓胸。');
           ecg.setType('CPR');
-          cprInterval = setInterval(() => {
-            screen.innerHTML = '請立即開始持續壓胸<br /><span class="yellow-text">嗶！110 BPM</span>';
-            playBeep(1000, 0.10, 0.16);
-            ecg.triggerCprPulse();
-          }, 545);
+          startCprToneLoop();
           break;
 
         case STATES.ACCIDENT:

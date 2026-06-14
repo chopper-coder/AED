@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'aed-simulator-v2-2-github-cpr-beep-restore-20260614';
+const CACHE_NAME = 'aed-simulator-v2-3-github-cpr-audio-fix-20260614';
 const APP_SHELL = [
   './',
   './index.html',

@@ -1,19 +1,13 @@
-AED 模擬教學器 V2.2 GitHub CPR 嗶聲恢復版
+AED 模擬教學器 V2.3 GitHub CPR 手機音效修正版
 
-本版重點：
-1. 保留 V2 離線版，不使用 Tailwind CDN，可直接放到 GitHub Pages。
-2. 取消畫面上的「放電危險勿靠近」覆蓋提示。
-3. CPR 110 BPM 嗶嗶聲改回原本手機較穩定的 Web Audio 直接震盪器寫法。
-4. Service Worker 快取名稱已更新為 V2.2，避免 GitHub Pages 手機端讀到舊快取。
+修改重點：
+1. 修正手機 GitHub Pages 上 CPR 階段可能沒有嗶嗶聲的問題。
+2. CPR 節拍改成預先啟動 AudioContext 連續音訊引擎，再用 545ms 節拍控制音量脈衝。
+3. 保留原本直接 oscillator 嗶聲作為備援。
+4. 移除下方「教學提醒」顯示。
+5. 更新 Service Worker 快取名稱，避免手機讀到舊版。
 
-GitHub Pages 更新方式：
-1. 將本資料夾內所有檔案上傳到 repository 根目錄。
-2. 確認 index.html、manifest.json、sw.js、aed-icon.svg 都在同一層。
-3. 手機若仍讀到舊版，請到瀏覽器清除網站資料，或網址後加 ?v=2.2 測試。
-4. iPhone 建議使用 Safari 開啟；Android 建議使用 Chrome 開啟。
-
-操作：
-1. 開啟網頁後先按「進入模擬教學（解鎖語音）」。
-2. 按 ON/OFF 開機。
-3. 拖曳兩片貼片到正確位置。
-4. 進入 CPR 階段後，畫面會顯示「嗶！110 BPM」，並自動播放 CPR 節拍。
+GitHub 使用方式：
+請將 index.html、manifest.json、sw.js、aed-icon.svg、README.txt 上傳到 repository 根目錄。
+上傳後建議用網址參數測試：?v=2.3
+若手機仍讀到舊版，請清除網站資料或重新整理 GitHub Pages 快取。
