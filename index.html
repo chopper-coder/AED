@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AED 模擬教學器 - 行動視覺全畫幅版</title>
+    <title>AED 模擬教學器 - 語音零延遲現場版</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         @keyframes blink {
@@ -137,7 +137,7 @@
                 <div id="pad1" draggable="true" class="pad-item w-12 h-16 md:w-16 md:h-20 bg-white border-2 md:border-4 border-red-500 rounded-lg md:rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[10px] md:text-[11px] font-black text-red-600 transition-transform touch-none">
                     <span>⚡ 貼片</span><span class="text-[8px] md:text-[9px] font-medium">(右上)</span>
                 </div>
-                <div id="pad2" draggable="true" class="pad-item w-16 h-20 bg-white border-2 md:border-4 border-blue-500 rounded-lg md:rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[10px] md:text-[11px] font-black text-blue-600 transition-transform touch-none" style="width: 3rem; height: 4rem;">
+                <div id="pad2" draggable="true" class="pad-item w-12 h-16 md:w-16 md:h-20 bg-white border-2 md:border-4 border-blue-500 rounded-lg md:rounded-xl shadow-md flex flex-col items-center justify-center cursor-grab active:cursor-grabbing text-[10px] md:text-[11px] font-black text-blue-600 transition-transform touch-none">
                     <span>⚡ 貼片</span><span class="text-[8px] md:text-[9px] font-medium">(左下)</span>
                 </div>
             </div>
@@ -282,12 +282,20 @@
                     btnPower.className = "w-14 h-14 bg-red-600 hover:bg-red-500 active:scale-95 border-2 border-red-700 text-white font-black rounded-full shadow-md flex items-center justify-center text-xs transition-all cursor-pointer";
                     
                     ecg.start(); ecg.setType('NORMAL'); 
+                    
+                    // ================= 終極音訊優化 1：一開機「秒嗶」三聲！強制震開瀏覽器封鎖 =================
+                    playBeep(1200, 0.08);
+                    setTimeout(() => playBeep(1200, 0.08), 150);
+                    setTimeout(() => playBeep(1500, 0.15), 300);
+
+                    // 給硬體聲道 500 毫秒極短預熱，語音緊接著「流暢秒出」不被切字！
                     setTimeout(() => {
                         if (currentState === STATES.POWER_ON) {
                             speak("請保持冷靜，依照語音指示操作。撕開包裝，貼上電擊貼片。");
                         }
-                    }, 300);
+                    }, 500);
 
+                    // 5.2 秒後切換到貼貼片狀態
                     setTimeout(() => { if(currentState === STATES.POWER_ON) changeState(STATES.WAIT_PADS); }, 5200);
                     break;
 
@@ -388,12 +396,7 @@
                 if (currentState !== STATES.WAIT_PADS || pad.getAttribute('draggable') === 'false') return;
                 const touch = e.touches[0]; const rect = pad.getBoundingClientRect();
                 startX = touch.clientX - rect.left; startY = touch.clientY - rect.top;
-                
-                // 為了在固定定位時保持原比例，讀取當前寬高
-                pad.dataset.origW = rect.width;
-                pad.dataset.origH = rect.height;
                 pad.style.width = rect.width + 'px'; pad.style.height = rect.height + 'px';
-                
                 pad.classList.add('touch-dragging');
                 pad.style.left = (touch.clientX - startX) + 'px'; pad.style.top = (touch.clientY - startY) + 'px';
             }, { passive: true });
@@ -425,11 +428,7 @@
                 target.innerHTML = ''; target.appendChild(draggedPad);
                 draggedPad.setAttribute('draggable', 'false'); draggedPad.classList.remove('cursor-grab');
                 draggedPad.classList.remove('touch-none');
-                
-                // 塞入目標框後，強制貼片縮小適應手機版目標框
-                draggedPad.style.width = '100%';
-                draggedPad.style.height = '100%';
-                
+                draggedPad.style.width = '100%'; draggedPad.style.height = '100%';
                 target.classList.remove('border-dashed'); target.classList.add('border-solid', 'bg-green-100');
                 attachedPadsCount++;
                 if (attachedPadsCount === 2) changeState(STATES.ANALYZING);
@@ -440,7 +439,6 @@
             attachedPadsCount = 0; const storageBox = document.getElementById('pad-storage-box');
             const pad1 = document.getElementById('pad1'); const pad2 = document.getElementById('pad2');
             
-            // 恢復目標框樣式與尺寸
             const t1 = document.getElementById('target-pad1');
             t1.innerHTML = '放置右胸';
             t1.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-red-500 rounded-lg md:rounded-xl absolute top-10 left-6 flex items-center justify-center text-[9px] md:text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
@@ -449,7 +447,6 @@
             t2.innerHTML = '放置左下肋';
             t2.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-blue-500 rounded-lg md:rounded-xl absolute bottom-8 right-6 flex items-center justify-center text-[9px] md:text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
             
-            // 清除行內樣式
             pad1.style.width = ''; pad1.style.height = '';
             pad2.style.width = ''; pad2.style.height = '';
             
@@ -464,12 +461,19 @@
             try {
                 if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
                 if (audioCtx.state === 'suspended') { await audioCtx.resume(); }
-                const dummy = new SpeechSynthesisUtterance(""); window.speechSynthesis.speak(dummy);
             } catch (audioError) { console.warn("音訊自動播放受限"); }
             changeState(targetState);
         });
 
         btnShock.addEventListener('click', () => currentState === STATES.SHOCK_ADVISED ? changeState(STATES.SHOCKING) : null);
+
+        // 預加載
+        window.addEventListener('DOMContentLoaded', () => {
+            if ('speechSynthesis' in window) {
+                const preloadDummy = new SpeechSynthesisUtterance("");
+                preloadDummy.volume = 0; window.speechSynthesis.speak(preloadDummy);
+            }
+        });
     </script>
 </body>
 </html>
