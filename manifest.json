@@ -1,17 +1,20 @@
 {
-  "short_name": "AED模擬器",
-  "name": "AED 自動體外心臟電擊去顫器模擬教學系統",
+  "name": "AED 模擬教學器 V2 離線穩定版",
+  "short_name": "AED 教學器 V2",
+  "description": "AED 模擬教學器，支援離線使用、貼片拖曳、電擊防錯與 CPR 節拍。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#f59e0b",
+  "orientation": "any",
+  "lang": "zh-TW",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3004/3004461.png",
-      "type": "image/png",
-      "sizes": "512x512",
+      "src": "./aed-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ],
-  "start_url": "./index.html",
-  "background_color": "#f59e0b",
-  "theme_color": "#f59e0b",
-  "display": "standalone",
-  "orientation": "portrait"
+  ]
 }
