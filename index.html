@@ -208,16 +208,16 @@
             } catch(e) { console.warn("語音播放受阻:", e); }
         }
 
-        // 核心爆破優化：每次嗶聲主動檢查解鎖音訊上下文，確保非互動狀態（CPR）依然有逼逼聲
+        // 恢復最初最穩定的標準音訊驅動
         function playBeep(frequency, duration) {
             try {
                 if (!audioCtx) return;
-                if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+                // 還原：不進行過度複雜的手機掛起狀態判定，維持最直接的單次震盪器發聲
                 const osc = audioCtx.createOscillator(); 
                 const gain = audioCtx.createGain();
                 osc.type = 'sine'; 
                 osc.frequency.value = frequency; 
-                gain.gain.setValueAtTime(0.2, audioCtx.currentTime); // 提高音量
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime); 
                 osc.connect(gain); 
                 gain.connect(audioCtx.destination);
                 osc.start(); 
@@ -225,16 +225,13 @@
             } catch(e) { console.warn("音訊播報受阻:", e); }
         }
 
-        // 觸電專用高頻恐怖雜音生成器
         function playZappingNoise() {
             try {
                 if (!audioCtx) return;
                 const bufferSize = audioCtx.sampleRate * 0.4;
                 const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
                 const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    data[i] = (Math.random() - 0.5) * 0.5; // 白雜訊
-                }
+                for (let i = 0; i < bufferSize; i++) { data[i] = (Math.random() - 0.5) * 0.5; }
                 const noise = audioCtx.createBufferSource();
                 noise.buffer = buffer;
                 noise.connect(audioCtx.destination);
@@ -314,7 +311,7 @@
                     break;
                 case STATES.SHOCK_ADVISED:
                     screen.innerHTML = "建議電擊！正在充電！<br>請遠離病患！"; speak("建議電擊，正在充電。請遠離病患！");
-                    dangerOverlay.classList.remove('hidden'); // 秀出放電危險紅框
+                    dangerOverlay.classList.remove('hidden'); 
                     
                     let chargeTimer = 0;
                     const chargeInterval = setInterval(() => {
@@ -338,45 +335,41 @@
                     }, 1500);
                     break;
                 case STATES.CPR:
-                    screen.innerHTML = "請立即開始持續壓胸"; speak("請立即開始持續壓胸。"); ecg.setType('CPR'); 
+                    // 還原：畫面恢復為純自動播放引導提示
+                    screen.innerHTML = "請立即開始持續壓胸"; 
+                    speak("請立即開始持續壓胸。"); ecg.setType('CPR'); 
                     
-                    // 核心修正：將音訊驅動注入定時器，一邊繪圖一邊「絕對發出逼逼聲音」
-                    if(audioCtx) audioCtx.resume(); 
-                    
+                    // 還原：完全移除手動點擊壓胸的判定，直接執行最穩定、最純粹的 110 BPM 定時自動發聲器
                     cprInterval = setInterval(() => {
                         screen.innerHTML = `請立即開始持續壓胸<br><span class="text-yellow-400 font-bold">嗶！ (110 BPM)</span>`;
-                        playBeep(1000, 0.12); // 標準且響亮的壓胸節拍聲
+                        playBeep(1000, 0.1); 
                         ecg.triggerCprPulse();
                     }, 545);
                     break;
 
-                case STATES.ACCIDENT: // ================= 新增：嚴重事故（有人在放電時觸碰病患） =================
+                case STATES.ACCIDENT:
                     ecg.setType('ASYSTOLE');
                     screen.innerHTML = "<span class='text-red-500 font-black animate-pulse'>⚠️ 嚴重事故 ⚠️<br>施救者不幸觸電！</span>";
                     bodyBg.className = "fixed inset-0 z-[99999] flex flex-col items-center justify-center p-6 text-white text-center font-bold text-xl bg-red-600 shock-accident-active";
                     
-                    // 噴出觸電慘白反相黑化畫面與電流雜音
                     playZappingNoise();
                     speak("警告！警告！有人觸碰病患！施救者不幸觸電！電擊失敗！請立即按電源鍵重置系統！");
                     break;
             }
         }
 
-        // ================= 觸電偵測：在分析與建議電擊放電時，如果碰到安妮軀幹 =================
-        anniChest.addEventListener('click', (e) => {
-            // 防止點到裡面的貼片按鈕也觸電
+        // 還原：安妮胸膛只專注監聽「高壓放電時的觸電防錯功能」，完全不再干涉 CPR 壓胸點擊與手動發聲
+        function handleAnniInteraction(e) {
             if (e.target.classList.contains('pad-item') || e.target.closest('.pad-item')) return;
             
+            // 只有在分析、充電、放電的高壓狀態下觸碰，才會引發觸電事故
             if (currentState === STATES.ANALYZING || currentState === STATES.SHOCK_ADVISED || currentState === STATES.SHOCKING) {
                 changeState(STATES.ACCIDENT);
             }
-        });
-        anniChest.addEventListener('touchstart', (e) => {
-            if (e.target.classList.contains('pad-item') || e.target.closest('.pad-item')) return;
-            if (currentState === STATES.ANALYZING || currentState === STATES.SHOCK_ADVISED || currentState === STATES.SHOCKING) {
-                changeState(STATES.ACCIDENT);
-            }
-        });
+        }
+
+        anniChest.addEventListener('click', handleAnniInteraction);
+        anniChest.addEventListener('touchstart', handleAnniInteraction);
 
         // 跨平台拖曳
         const pads = document.querySelectorAll('.pad-item'); const targets = document.querySelectorAll('.pad-target');
@@ -419,7 +412,7 @@
 
         function resetPads() {
             attachedPadsCount = 0; const storageBox = document.getElementById('pad-storage-box'); const pad1 = document.getElementById('pad1'); const pad2 = document.getElementById('pad2');
-            const t1 = document.getElementById('target-pad1'); t1.innerHTML = '放置右胸'; t1.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-red-500 rounded-xl absolute top-10 left-6 flex items-center justify-center text-[9px] md:text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
+            const t1 = document.getElementById('target-pad1'); t1.innerHTML = '放置右胸'; t1.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-red-500 rounded-lg md:rounded-xl absolute top-10 left-6 flex items-center justify-center text-[9px] md:text-[11px] text-red-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
             const t2 = document.getElementById('target-pad2'); t2.innerHTML = '放置左下肋'; t2.className = 'pad-target w-12 h-16 md:w-16 md:h-20 border-2 md:border-4 border-dashed border-blue-500 rounded-lg md:rounded-xl absolute bottom-8 right-6 flex items-center justify-center text-[9px] md:text-[11px] text-blue-600 font-extrabold bg-white/70 backdrop-blur-xs shadow-xs transition-all';
             pad1.style.width = ''; pad1.style.height = ''; pad2.style.width = ''; pad2.style.height = '';
             pad1.setAttribute('draggable', 'true'); pad1.classList.add('cursor-grab', 'touch-none');
